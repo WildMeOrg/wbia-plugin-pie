@@ -3,8 +3,8 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import shuffle
 
 import sys, os
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-from utils.utils import rem_dupl
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))  # models subdir
+from utils import rem_dupl
 from metrics import acck, mapk
 
 
@@ -18,7 +18,7 @@ def evaluate_1_vs_all(train, train_lbl, test, test_lbl, n_eval_runs=10, move_to_
     n_eval_runs: integer, number of evaluation runs,default = 10
     move_to_db: integer, number of images to move to a database for each individual, default = 2
     k: array of integers, top-k accuracy to evaluate.
-    
+
     Returns:
     mean_accuracy_1, mean_accuracy_5, mean_accuracy_10
     """
@@ -31,12 +31,12 @@ def evaluate_1_vs_all(train, train_lbl, test, test_lbl, n_eval_runs=10, move_to_
     #Evaluate accuracy at different k over a multiple runs. Report average results.
     acc = {k: [] for k in k_list}
     map_dict = {k: [] for k in k_list}
-    
+
     for i in range(n_eval_runs):
         neigh_lbl_run = []
-        db_emb, db_lbl, query_emb, query_lbl = get_eval_set_one_class(train, train_lbl, test, test_lbl, 
+        db_emb, db_lbl, query_emb, query_lbl = get_eval_set_one_class(train, train_lbl, test, test_lbl,
                                                            move_to_db = move_to_db)
-        print('Number of classes in query set: ', len(db_emb)) 
+        print('Number of classes in query set: ', len(db_emb))
 
         for j in range(len(db_emb)):
             neigh_lbl_un, _, _ = predict_k_neigh(db_emb[j], db_lbl[j], query_emb[j], k=10)
@@ -59,7 +59,7 @@ def evaluate_1_vs_all(train, train_lbl, test, test_lbl, n_eval_runs=10, move_to_
     print('Stdev: ', std_runs)
     for i, k in enumerate(k_list):
         print('ACC@{} %{:.2f} +-{:.2f}'.format(k, acc_runs[i], std_runs[i]))
-    
+
     #Report Mean average precision at k
     print('MAP over {} runs:'.format(n_eval_runs))
     map_array = np.array([map_dict[k] for k in k_list], dtype=np.float32)
@@ -67,7 +67,7 @@ def evaluate_1_vs_all(train, train_lbl, test, test_lbl, n_eval_runs=10, move_to_
     std_map_runs = np.std(map_array, axis=1)*100
     for i, k in enumerate(k_list):
         print('MAP@{} %{:.2f} +-{:.2f}'.format(k, map_runs[i], std_map_runs[i]))
-       
+
     return dict(zip(k_list, acc_runs)), dict(zip(k_list, std_runs))
 
 def predict_k_neigh(db_emb, db_lbls, test_emb, k=5):
@@ -77,7 +77,7 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5):
     db_lbls: 1D array, string or floats: database labels
     test_emb: 2D float array: test embeddings
     k: integer, number of predictions.
-    
+
     Returns:
     neigh_lbl_un - 2d int array of shape [len(test_emb), k] labels of predictions
     neigh_ind_un - 2d int array of shape [len(test_emb), k] labels of indices of nearest points
@@ -96,7 +96,7 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5):
     for i, preds in enumerate(neigh_ind):
         for j, pred in enumerate(preds):
             neigh_lbl[i,j] = db_lbls[pred]
-            
+
     #Remove duplicates
     neigh_lbl_un = []
     neigh_ind_un = []
@@ -121,7 +121,7 @@ def get_eval_set_one_class(train, train_lbl, test, test_lbl, move_to_db = 1):
     test: ndarray, test data, (num_test, ...)
     test_lbl: 1D numpy array, labels for test data, (num_test,)
     move_to_db: integer, number of samples to move to database from the test set, default = 1
-    
+
     Returns:
     database: list of numpy arrays, len = num_unique_test_classes
     database_lbl:
@@ -146,4 +146,4 @@ def get_eval_set_one_class(train, train_lbl, test, test_lbl, move_to_db = 1):
         query_list.append(test[idx_query])
         query_lbl_list.append(test_lbl[idx_query])
 
-    return db_list, db_lbl_list, query_list, query_lbl_list 
+    return db_list, db_lbl_list, query_list, query_lbl_list

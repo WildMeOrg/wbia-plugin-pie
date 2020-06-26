@@ -1,4 +1,4 @@
-'''
+"""
 ===============================================================================
 Script to compute embeddings for images with CNN to use later for re-identification.
 
@@ -28,9 +28,11 @@ image_dir
               ...
 
 ===============================================================================
-'''
+"""
 
-import argparse, os, json
+import argparse
+import os
+import json
 import numpy as np
 
 from .model.triplet import TripletLoss
@@ -41,35 +43,34 @@ argparser = argparse.ArgumentParser(
     description='Compute embeddings for the database. No arguments are required if default values are used.')
 
 argparser.add_argument('-d', '--dbpath', required=True, help='Path to folder with localized database images')
-argparser.add_argument('-c','--conf', help='Path to configuration file', default='configs/config-manta.json')
+argparser.add_argument('-c', '--conf',   help='Path to configuration file', default='configs/config-manta.json')
 argparser.add_argument('-o', '--output', help='Path to output csv files. Default is in config: prod.embeddings')
-argparser.add_argument('-p','--prefix', help='String to add to embeddings file. Default is in config: prod.prefix')
+argparser.add_argument('-p', '--prefix', help='String to add to embeddings file. Default is in config: prod.prefix')
 
 
 def hello():
     print("yo yo yo!")
 
 
-def _main_(args):
+# This is a package-ified version of original _main_ func
+def compute(dbpath, config_path, output_dir, prefix, export=False):
 
-    #Open config with parameters
-    dbpath = args.dbpath
-
-    config_path = args.conf
+    # process inputs and load default values
     with open(config_path) as config_buffer:
         config = json.loads(config_buffer.read())
 
-    if args.output is None:
+    if output_dir is None:
         output_dir = config['prod']['embeddings']
-    else:
-        output_dir = args.output
+        plugin_folder = os.path.dirname(os.path.realpath(__file__))
+        output_dir = os.path.join(plugin_folder, output_dir)
 
-    if args.prefix is None:
+    # output_dir is relative so (for now at least--TODO: decide) we'll prepend the plugin dir
+    print('output_dir = %s' % output_dir)
+
+    if prefix is None:
         prefix = config['prod']['prefix']
-    else:
-        prefix = args.prefix
 
-    #Read localized images from a folder with localized database images
+    # Read localized images from a folder with localized database images
     if os.path.exists(dbpath):
         print('Loading images from from {}'.format(dbpath))
         db_imgs, db_labels, lbl2names, db_files = read_dataset(dbpath, return_filenames=True, original_labels=False)
@@ -78,27 +79,34 @@ def _main_(args):
         print('Error! Path does not exist: {}'.format(dbpath))
         quit()
 
+    print('db_imgs   = %s' % db_imgs)
+    print('db_labels = %s' % db_labels)
+    print('lbl2names = %s' % lbl2names)
+    print('db_files  = %s' % db_files)
+
     ##############################
     #   Load the model
     ##############################
 
     INPUT_SHAPE = (config['model']['input_height'], config['model']['input_width'], 3)
-    model_args = dict(backend           = config['model']['backend'],
-                            frontend          = config['model']['frontend'],
-                            input_shape       = INPUT_SHAPE,
-                            embedding_size    = config['model']['embedding_size'],
-                            connect_layer     = config['model']['connect_layer'],
-                            train_from_layer  = config['model']['train_from_layer'],
-                            loss_func         = config['model']['loss'])
+    model_args = dict(
+        backend=config['model']['backend'],
+        frontend=config['model']['frontend'],
+        input_shape=INPUT_SHAPE,
+        embedding_size=config['model']['embedding_size'],
+        connect_layer=config['model']['connect_layer'],
+        train_from_layer=config['model']['train_from_layer'],
+        loss_func=config['model']['loss']
+    )
+    print('model_args  = %s' % model_args)
 
     if config['model']['type'] == 'TripletLoss':
         mymodel = TripletLoss(**model_args)
     else:
         raise Exception('Only TripletLoss model type is supported')
 
-
-    #Define folder for experiment
-    exp_folder = os.path.join(config['train']['exp_dir'], config['train']['exp_id'])
+    # Define folder for experiment
+    exp_folder = os.path.join(plugin_folder, config['train']['exp_dir'], config['train']['exp_id'])
     saved_weights = os.path.join(exp_folder, 'best_weights.h5')
 
     if os.path.exists(saved_weights):
@@ -108,15 +116,24 @@ def _main_(args):
         print("ERROR! No pre-trained weights are found in {} ", saved_weights)
         quit()
 
-    #Compute embeddings
+    # Compute embeddings
     print('Computing embeddings and saving as csv in {}'.format(output_dir))
     db_preds = mymodel.preproc_predict(db_imgs, config['train']['batch_size'])
+    # db_preds appears to be just the embeddings. So we can hook in here and export them
 
-    #Export embeddings
-    export_emb(db_preds, info=[db_labels, db_files, db_names],
-               folder=output_dir, prefix=prefix, info_header=['class,file,name'])
+    if export:
+        # Export embeddings
+        print("Done computing embeddings, exporting to %s" % output_dir)
+        export_emb(db_preds, info=[db_labels, db_files, db_names],
+                   folder=output_dir, prefix=prefix, info_header=['class,file,name'])
+    return db_preds
 
 
 if __name__ == '__main__':
     args = argparser.parse_args()
-    _main_(args)
+    compute(
+        dbpath=args.dbpath,
+        config_path=args.conf,
+        output_dir=args.output,
+        prefix=args.prefix,
+    )

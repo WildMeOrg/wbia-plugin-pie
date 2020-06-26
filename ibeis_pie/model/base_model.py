@@ -84,6 +84,7 @@ class BaseModel(object):
         Returns:
         predictions: numpy array with predictions (num_images, len_model_output)
         """
+        print("base_model preproc_predict!")
         batch_idx = make_batches(imgs.shape[0], batch_size)
         imgs_preds = np.zeros((imgs.shape[0],)+self.model.get_output_shape_at(0)[1:])
         print('Computing predictions with the shape {}'.format(imgs_preds.shape))
@@ -91,6 +92,8 @@ class BaseModel(object):
         for sid, eid in batch_idx:
             preproc = self.backend_class.normalize(imgs[sid:eid])
             imgs_preds[sid:eid] = self.model.predict_on_batch(preproc)
+
+        print("imgs_preds = %s" % imgs_preds)
 
         return imgs_preds
 

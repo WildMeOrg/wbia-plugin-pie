@@ -8,8 +8,6 @@ from scipy.special import comb
 import sys
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))  # models subdir
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))  # adds package folder to sys.path
-print("after")
-print(sys.path)
 from base_model import BaseModel
 from tensorflow_losses import triplet_semihard_loss, lifted_struct_loss
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/utils')

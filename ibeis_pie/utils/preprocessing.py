@@ -25,10 +25,10 @@ def convert_to_fmt(src, imformat = 'png', logstep = 1000):
         print('Found {} files in source {}. Subdirectories are ignored'.format(len(imfiles), src))
     else:
         imfiles = [src]
-    
+
     #Remove leading dot if it is in the format
     imformat.replace('.', '')
-    
+
     #imfiles - list of full path to images
     new_files = []
     for i, file in enumerate(imfiles):
@@ -47,7 +47,7 @@ def convert_to_fmt(src, imformat = 'png', logstep = 1000):
                 new_files.append(file)
         except Exception as e:
             print(file, e)
-            
+
         if i%logstep==0 and i>0:
             print('Converted {} images'.format(i))
     print('Converted {} images.'.format(len(imfiles)))
@@ -64,7 +64,7 @@ def pad_im_to_square(impath, trg_dir):
     """
     try:
         img = imread(impath)
- 
+
         if img.shape[0] != img.shape[1]:
             print('Padding image {} to square'.format(impath))
             size = max(img.shape[0], img.shape[1])
@@ -73,7 +73,7 @@ def pad_im_to_square(impath, trg_dir):
                 target_img = np.zeros((size, size, img.shape[2]), dtype=np.uint8)
             else:
                 target_img = np.zeros((size, size), dtype=np.uint8)
-            
+
             if img.shape[0] > img.shape[1]:
                 margin = round((img.shape[0] - img.shape[1]) / 2 )
                 if len(img.shape)>2:
@@ -96,8 +96,8 @@ def pad_im_to_square(impath, trg_dir):
         else:
             return impath
     except Exception as e:
-        print(e)   
-        
+        print(e)
+
 def crop_im_by_mask(impath, maskpath, cropped_dir, padding = 0, square=True):
     """Crop an image by masks. Cropped image is a square size if possible.
     Input:
@@ -105,7 +105,7 @@ def crop_im_by_mask(impath, maskpath, cropped_dir, padding = 0, square=True):
     masks_dir: string, path to mask
     cropped_dir: string, directory to save cropped image
     padding: float[0,1], how much padding to add around mask, proportional to the width and height.
-    
+
     """
     mask = imread(maskpath)
     image = imread(impath)
@@ -132,7 +132,7 @@ def crop_im_by_mask(impath, maskpath, cropped_dir, padding = 0, square=True):
     #Add padding around bounding box:
     (x_p, y_p, w_p, h_p) = (x_n-round(h_n*padding),
                             y_n-round(w_n*padding),
-                            round(w_n+w_n*2*padding), round(h_n+h_n*2*padding))    
+                            round(w_n+w_n*2*padding), round(h_n+h_n*2*padding))
     x_min = max(0, x_p)
     y_min = max(0, y_p)
     x_max = min(x_p+w_p, mask.shape[1])
@@ -145,10 +145,10 @@ def crop_im_by_mask(impath, maskpath, cropped_dir, padding = 0, square=True):
     croppedpath = os.path.join(cropped_dir, imfile)
     imsave(croppedpath, cropped[...,:3])
     print('Cropped by mask and saved as {}'.format(croppedpath))
-    
+
     return croppedpath
-    
-        
+
+
 def resize_imgs(src, dest, size, del_src=False):
     """Crop images from source folder to a specific size and save to a dest folder.
     ---
@@ -163,9 +163,9 @@ def resize_imgs(src, dest, size, del_src=False):
         print('Found {} files in source {}. Subdirectories are ignored'.format(len(imfiles), src))
     else:
         imfiles = [src]
-        
+
     if not os.path.exists(dest): os.mkdir(dest)
-    
+
     resized_files = []
     for i, file in enumerate(imfiles):
         try:
@@ -179,20 +179,21 @@ def resize_imgs(src, dest, size, del_src=False):
             if del_src:
                 os.remove(file)
         except Exception as e:
+            print('Exception in preprocessing.py')
             print(file, e)
-    #Return a list of new resized files or 1 file 
+    #Return a list of new resized files or 1 file
     if os.path.isdir(src):
         return resized_files
     else:
         return resized_files[0]
-        
+
 
 def get_bound_box(filename):
     """Find bounding box for masked image.
     --------------------------------------
     Input:
     filename - string, path to masked image
-    
+
     Return:
     (x,y,w,h) - tuple, bounding box
     """
@@ -215,8 +216,8 @@ def get_bound_box(filename):
         count = count + 1
     x,y,w,h = cv2.boundingRect(contours[best])
     return (x,y,w,h)
-        
-        
+
+
 def crop_im_by_box(filename, bbox, verbose=False):
     """Crop and save image by bounding box.
     ---------------------------------
@@ -238,14 +239,14 @@ def crop_im_by_box(filename, bbox, verbose=False):
     except Exception as e:
         print(e)
         print('Not found {}'.format(filename))
-    
+
 def read_dataset(img_dir, data_type='uint8', return_filenames=False, original_labels=False):
     """Read a dataset from a directory where each class is in a subdirectory:
     img_dir: string, path to image directory
     data_type: string, data type of images, expects float32 or uint8
     return_filenames: boolean, if True, an array with filenames is returned
     original_labels: boolean, if True, an original labels returned, if False, integer labels are returned
-    
+
     Return:
     X - ndarray of images
     y - 1D integer labels
@@ -305,7 +306,7 @@ def read_dataset(img_dir, data_type='uint8', return_filenames=False, original_la
 
 def split_classes(dataset, labels, test_size=0.15, seed=None, return_mask=False, split_num=-1):
     '''Split dataset and labels into train and validation without class overlap
-    
+
     Input:
     -----------
     dataset: 4D array of images
@@ -319,13 +320,13 @@ def split_classes(dataset, labels, test_size=0.15, seed=None, return_mask=False,
     dataset_len = dataset.shape[0]
     print('Splitting dataset of size: {}'.format(dataset_len))
     unique_lbls = list(np.unique(labels))
-    
+
     if seed is None:
         seed = 0
-  
+
     if split_num == -1:
         lbls_train, lbls_valid = train_test_split(unique_lbls, test_size=test_size, random_state=seed)
-    
+
     else:
         print('K-Fold split. Loading data for the split: {}'.format(split_num))
         n_splits = 5
@@ -337,21 +338,21 @@ def split_classes(dataset, labels, test_size=0.15, seed=None, return_mask=False,
 
         print('test index:', test_index)
         lbls_train = np.array(unique_lbls)[train_index]
-        
+
     mask_train = np.full((dataset_len,), False, dtype=bool)
 
     for i, image in enumerate(dataset):
         if labels[i] in lbls_train:
             mask_train[i] = True
-                
+
     dataset_t = dataset[mask_train]
     dataset_v = dataset[~mask_train]
     labels_t = labels[mask_train]
     labels_v = labels[~mask_train]
-    
+
     print('Shape of train set : {}, shape of valid set: {},\ntrain labels: {}, valid labels: {}'.format(
     dataset_t.shape, dataset_v.shape, labels_t.shape, labels_v.shape))
-    
+
     if return_mask:
         return dataset_t, labels_t, dataset_v, labels_v, mask_train
     else:
@@ -364,7 +365,7 @@ def split_classification(imgs, labels, min_imgs, return_mask=False):
     #Move some images to validation set
     indexes_tovalid = np.array([np.random.choice(np.where(labels == lab)[0], size=min_imgs, replace=False) for lab in u_labels])
     mask_tovalid = np.array([True if i in indexes_tovalid else False for i in range(labels.shape[0])])
-    
+
     #Split sets as per mask
     train_imgs = imgs[~mask_tovalid]
     train_labels = labels[~mask_tovalid]
@@ -382,20 +383,20 @@ def expand_aug(dataset, labels, n_aug, gen, return_labels=False):
     dataset_exp = np.zeros(shape=(dataset.shape[0]*n_aug,)+dataset.shape[1:], dtype=np.float32)
     labels_exp = np.empty(shape=(labels.shape[0]*n_aug,), dtype=labels.dtype)
     print('Shape of expanded set {}'.format(dataset_exp.shape))
-    for i in range(dataset.shape[0]):        
+    for i in range(dataset.shape[0]):
         start_idx = i*n_aug
         end_idx = (i+1)*n_aug
         dataset_exp[start_idx:end_idx]=np.array([gen.random_transform(dataset[i]) for j in range(n_aug)])
         labels_exp[start_idx:end_idx]=np.array([labels[i] for j in range(n_aug)])
         if (i%1000 == 0) and i!=0:
             print('Processed %d images' % i)
-            
+
     if return_labels:
         return dataset_exp, labels_exp
     else:
         return dataset_exp
-           
-    
+
+
 def analyse_dataset(imgs, lbls, name=None):
     """Analyse labelled dataset
 
@@ -425,4 +426,3 @@ def analyse_dataset(imgs, lbls, name=None):
     for k,v in imgs_dict.items():
         print('{}: {}'.format(k,v))
     return imgs_dict
-        
