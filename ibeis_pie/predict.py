@@ -192,6 +192,9 @@ def predict(img_path, config=None, config_path=None, display=False, output_dir=N
 
 
     #Fit nearest neighbours classifier
+    import utool as ut
+    ut.embed()
+
     neigh_lbl_un, neigh_ind_un, neigh_dist_un = predict_k_neigh(db_embs, db_lbls, embedding, k=10)
 
     #print(neigh_lbl_un, neigh_ind_un, neigh_dist_un)
@@ -202,7 +205,6 @@ def predict(img_path, config=None, config_path=None, display=False, output_dir=N
     pred_imgs = [imread(db_info[idx, 0]) for idx in neigh_ind_un]
     pred_lbl = [db_info[idx, 1] for idx in neigh_ind_un]
     pred_files = [db_info[idx, 0] for idx in neigh_ind_un]
-
 
     ans_dict = [{'label': lbl, 'distance': dist} for lbl, dist in zip(pred_lbl, neigh_dist_un)]
     if skip_illustration:
@@ -253,6 +255,18 @@ def predict(img_path, config=None, config_path=None, display=False, output_dir=N
         plt.show()
 
     print('Program is finished')
+    return ans_dict
+
+
+def pred_light(query_embedding, db_embeddings, db_labels, config_path, n_results=10):
+    #Fit nearest neighbours classifier
+    neigh_lbl_un, neigh_ind_un, neigh_dist_un = predict_k_neigh(db_embeddings, db_labels, query_embedding, k=n_results)
+
+    #print(neigh_lbl_un, neigh_ind_un, neigh_dist_un)
+    neigh_lbl_un  = neigh_lbl_un[0]
+    neigh_dist_un = neigh_dist_un[0]
+
+    ans_dict = [{'label': lbl, 'distance': dist} for lbl, dist in zip(neigh_lbl_un, neigh_dist_un)]
     return ans_dict
 
 

@@ -30,13 +30,50 @@ def pie_compute_embeddings(ibs, dbpath, config_path=_DEFAULT_CONFIG, output_dir=
 @register_ibs_method
 def pie_predict(ibs, aid, daid_list):
     config      = ibs.pie_predict_prepare_config(daid_list)
-    return ibs._pie_predict(ibs.get_annot_image_paths(aid), config=config)
+    ans = ibs._pie_predict(ibs.get_annot_image_paths(aid), config=config)
+    return ans
+
+
+@register_ibs_method
+def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
+    # just call embeddings once bc of significant startup time on PIE's bulk embedding-generator
+    all_aids  = daid_list + [qaid]
+    all_embs  = ibs.pie_embedding(all_aids)
+
+    # now get the embeddings into the shape and type PIE expects
+    db_embs   = np.array(all_embs[:-1])
+    query_emb = np.array(all_embs[-1:])  # query_emb.shape = (1, 256)
+    db_labels = np.array(ibs.get_annot_name_texts(daid_list))
+
+    from .predict import pred_light
+    ans = pred_light(query_emb, db_embs, db_labels, config_path)
+    return ans
+
+
+# quality-control method to compare the dicts from both predict methods
+# IDK if it's randomness in k-means or float errors, but the distances differ in practice by ~2e-8
+@register_ibs_method
+def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
+
+    labels1 = [entry['label'] for entry in answer_dict1]
+    labels2 = [entry['label'] for entry in answer_dict2]
+    agree = [lab1==lab2 for (lab1, lab2) in zip(labels1, labels2)]
+    assert(all(agree), "Label rankings differ at rank %s" % agree.index(False))
+    print("Labels agree")
+
+    distances1 = [entry['distance'] for entry in answer_dict1]
+    distances2 = [entry['distance'] for entry in answer_dict2]
+    diffs = [abs(d1-d2) for (d1, d2) in zip(distances1, distances2)]
+    assert(max(diffs) < dist_tolerance,
+           "Distances diverge at rank %s" % diffs.index(max(diffs)))
+    print("Distances are all within tolerance of %s" % dist_tolerance)
+
+
 
 @register_ibs_method
 def _pie_predict(ibs, image_path, config=None, config_path=_DEFAULT_CONFIG, display=False):
     from .predict import predict
     return predict(image_path, config, config_path, display)
-
 
 
 # This func modifies a base PIE config file, which contains network parameters as well as database and image paths,
@@ -69,14 +106,6 @@ def pie_ensure_embeddings(ibs, daid_list, base_config_file=_DEFAULT_CONFIG):
         lbls_fname = _write_labels_csv(ibs, daid_list, lbls_fname)
 
     return embeddings_dir
-
-
-# just for testing, delete later
-@register_ibs_method
-def pie_save_embed(ibs, daid_list, base_config_file=_DEFAULT_CONFIG):
-    embeddings = ibs.pie_embedding(daid_list)
-    embeddings_dir = pie_annot_info_dir(daid_list)
-    return _write_embeddings_csv(embeddings, embeddings_dir)
 
 
 def _write_embeddings_csv(embeddings, fname):
@@ -113,6 +142,7 @@ def _pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG):
     return embeddings
 
 
+# note: an embedding is 256xfloat8, aka 2kb in size.
 @register_ibs_method
 def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
     if use_depc:
