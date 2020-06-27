@@ -262,7 +262,6 @@ def pred_light(query_embedding, db_embeddings, db_labels, config_path, n_results
     #Fit nearest neighbours classifier
     neigh_lbl_un, neigh_ind_un, neigh_dist_un = predict_k_neigh(db_embeddings, db_labels, query_embedding, k=n_results)
 
-    #print(neigh_lbl_un, neigh_ind_un, neigh_dist_un)
     neigh_lbl_un  = neigh_lbl_un[0]
     neigh_dist_un = neigh_dist_un[0]
 
