@@ -110,6 +110,95 @@ def _write_csv_dicts(csv_dicts, fpath):
         dict_writer.writerows(csv_dicts)
 
 
+class PieConfig(dt.Config):  # NOQA
+    """
+    CommandLine:
+        python -m ibeis_deepsense._plugin --test-DeepsenseConfig
+
+    Example:
+        >>> # ENABLE_DOCTEST
+        >>> from ibeis_deepsense._plugin import *  # NOQA
+        >>> config = DeepsenseConfig()
+        >>> result = config.get_cfgstr()
+        >>> print(result)
+        Deepsense(dim_size=2000)
+    """
+    def get_param_info_list(self):
+        return [
+            ut.ParamInfo('config_path', _DEFAULT_CONFIG),
+        ]
+
+
+class PieRequest(dt.base.VsOneSimilarityRequest):
+    _symmetric = False
+    _tablename = 'Pie'
+
+
+@register_preproc_annot(
+    tablename='Pie', parents=[ANNOTATION_TABLE, ANNOTATION_TABLE],
+    colnames=['score'], coltypes=[float],
+    configclass=PieConfig,
+    requestclass=PieRequest,
+    fname='pie',
+    rm_extern_on_delete=True,
+    chunksize=None)
+def ibeis_plugin_pie(depc, qaid_list, daid_list, config):
+    ibs = depc.controller
+
+    qaids = list(set(qaid_list))
+    daids = list(set(daid_list))
+
+    assert len(qaids) == 1
+    qaid = qaids[0]
+
+    # TODO: double-check config_path arg below is right vis à vis depc stuff
+    name_dist_dicts = ibs.pie_predict_light(qaid, daids, config_path=config['config_path'])
+
+    # TODO: below funcs
+    name_score_dicts = distance_dicts_to_score_dicts(name_dist_dicts)
+    aid_score_list  = aid_scores_from_name_scores(ibs, name_score_dicts, daids)
+
+    for qaid, daid, daid_score in zip(qaid_list, daid_list, aid_score_list):
+        yield daid_score
+
+
+def distance_to_score(distance):
+    score = 1 / (1 + distance)
+    return score
+
+
+def distance_dicts_to_score_dicts(distance_dicts, conversion_func=distance_to_score):
+    score_dicts = distance_dicts.copy()
+    for entry in score_dicts:
+        entry['score'] = conversion_func(entry['distance'])
+    return score_dicts
+
+
+# We get a score per-name, but now we need to compute scores per-annotation. Done simply by averaging the name score over all of that name's annotations
+@register_ibs_method
+def aid_scores_from_name_scores(ibs, name_score_dicts, daid_list):
+    daid_name_list = ibs.get_annot_name_texts(daid_list)
+    # name_score_dict is a list of dicts; we want one dict with names ('label') as keys
+    name_info_dict = {dct['label']: dct for dct in name_score_dicts}
+    # calculate annotwise score by dividing namescore by # of annots with that name
+    for name in name_info_dict.keys():
+        count = daid_name_list.count(name)
+        name_info_dict[name]['count'] = count
+        name_info_dict[name]['annotwise_score'] = name_info_dict[name]['score'] / count
+
+    # the rest of this method could be one big list comprehension; this is for readability
+    def compute_annot_score(i):
+        name = daid_name_list[i]
+        if name in name_info_dict:
+            score = name_info_dict[name]['annotwise_score']
+        else:
+            score = 0.0
+        return score
+
+    daid_scores = [compute_annot_score(i) for i in range(len(daid_list))]
+    return daid_scores
+
+
 @register_ibs_method
 def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
     # just call embeddings once bc of significant startup time on PIE's bulk embedding-generator
@@ -219,6 +308,38 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
     assert(max(diffs) < dist_tolerance,
            "Distances diverge at rank %s" % diffs.index(max(diffs)))
     print("Distances are all within tolerance of %s" % dist_tolerance)
+
+
+# Careful, this returns a different ibs than you sent in
+@register_ibs_method
+def pie_testdb_ibs(ibs):
+    import ibeis
+    testdb_name = 'manta-test'
+    try:
+        ans_ibs = ibeis.opendb(testdb_name)
+        aids = ibs.get_valid_annots()
+        assert len(aids) > 3
+        return ans_ibs
+    except:
+        print("PIE testdb does not exist; creating it with PIE's example images")
+
+    ans_ibs = ibeis.opendb(testdb_name, allow_newdir=True)
+
+    test_image_folder = os.path.join(_PLUGIN_FOLDER, 'examples/manta-demo/test')
+    test_images = os.listdir(test_image_folder)
+    test_images = [fname for fname in test_images if fname.lower().endswith('.png')]
+    gpaths = [os.path.join(test_image_folder, fname) for fname in test_images]
+    names = [fname.split('-')[0] for fname in test_images]
+
+    gid_list = ans_ibs.add_images(gpaths)
+    nid_list = ans_ibs.add_names(names)
+    species  = ['Mobula birostris'] * len(gid_list)
+    # these images are pre-cropped aka trivial annotations
+    wh_list  = ans_ibs.get_image_sizes(gid_list)
+    bbox_list = [[0, 0, w, h] for (w, h) in wh_list]
+    ans_ibs.add_annots(gid_list, bbox_list=bbox_list, species_list=species, nid_list=nid_list)
+
+    return ans_ibs
 
 
 @register_ibs_method
