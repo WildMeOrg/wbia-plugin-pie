@@ -16,11 +16,57 @@ register_preproc_annot = controller_inject.register_preprocs['annot']
 
 _PLUGIN_FOLDER  = os.path.dirname(os.path.realpath(__file__))
 _DEFAULT_CONFIG = os.path.join(_PLUGIN_FOLDER, 'configs/manta.json')
+_DEFAULT_CONFIG_DICT = {'config_path': _DEFAULT_CONFIG}
+
+
+@register_ibs_method
+def pie_embedding_timed(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
+    import time
+    start = time.time()
+    ans   = ibs.pie_embedding(aid_list, config_path, use_depc)
+    elapsed = time.time() - start
+    print("Computed %s embeddings in %s seconds" % (len(aid_list), elapsed))
+    per_embedding = elapsed / len(aid_list)
+    print("average time is %s per embedding" % per_embedding)
+    return ans
 
 
 # note: an embedding is 256xfloat8, aka 2kb in size (using default config)
 @register_ibs_method
 def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
+    r"""
+    Generate embeddings using the Pose-Invariant Embedding (PIE) algorithm made by Olga
+    Moskvyak and released on https://github.com/olgamoskvyak/reid-manta.
+    Olga's code has been modified and plugin-ified for this work.
+
+    Args:
+        ibs         (IBEISController): IBEIS controller object
+        aid_list  (int): annot ids specifying the input
+        config_path (str): path to a PIE config .json file that parameterizes the model
+            and directs PIE to the weight file, among other fields
+
+    CommandLine:
+        python -m ibeis_pie._plugin --test-pie_embedding
+        python -m ibeis_pie._plugin --test-pie_embedding:0
+
+    Example0:
+    >>> # ENABLE_DOCTEST
+    >>> import ibeis_pie
+    >>> ibs = ibeis_pie._plugin.pie_testdb_ibs()
+    >>> aids = ibs.get_valid_aids(species='Mobula birostris')
+    >>> embs_depc    = ibs.pie_embedding(aids, use_depc=True)
+    >>> embs_no_depc = ibs.pie_embedding(aids, use_depc=False)
+    >>> diffs = embs_depc - embs_no_depc
+    >>> diffs = [4abs(diff) for diff in diffs]
+    >>> compare_depc = (embs_depc == embs_no_depc)
+    >>> assert compare_depc.all()
+    >>> # each embedding is 256 floats long so we'll just check a bit
+    >>> result = embs_depc[0][:20]
+    array([-0.07695036,  0.08611217,  0.01690802, -0.06757034, -0.04934874,
+       -0.00392486,  0.01672293,  0.10125934,  0.02688598,  0.12142057,
+       -0.08762568,  0.00754442, -0.01037392, -0.13900816,  0.00607268,
+        0.08011609, -0.01957191, -0.0222167 ,  0.02466557,  0.01921911])
+    """
     if use_depc:
         config = {'config_path': config_path}
         embeddings = ibs.depc_annot.get("PieEmbedding", aid_list, 'embedding', config=config)
@@ -42,14 +88,15 @@ class PieEmbeddingConfig(dt.Config):  # NOQA
     fname='pie',
     chunksize=128)
 @register_ibs_method
-def pie_embedding_depc(depc, aid_list, config=_DEFAULT_CONFIG):
+def pie_embedding_depc(depc, aid_list, config=_DEFAULT_CONFIG_DICT):
     ibs = depc.controller
-    embs = pie_compute_embedding(ibs, aid_list, config)
+    embs = pie_compute_embedding(ibs, aid_list, config_path=config['config_path'])
     for aid, emb in zip(aid_list, embs):
         yield (np.array(emb), )
 
 
 # TODO: delete the generated files in dbpath when we're done computing embeddings
+@register_ibs_method
 def pie_compute_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, output_dir=None, prefix=None, export=False):
     dbpath = ibs.pie_preprocess(aid_list)
     from .compute_db import compute
@@ -111,18 +158,6 @@ def _write_csv_dicts(csv_dicts, fpath):
 
 
 class PieConfig(dt.Config):  # NOQA
-    """
-    CommandLine:
-        python -m ibeis_deepsense._plugin --test-DeepsenseConfig
-
-    Example:
-        >>> # ENABLE_DOCTEST
-        >>> from ibeis_deepsense._plugin import *  # NOQA
-        >>> config = DeepsenseConfig()
-        >>> result = config.get_cfgstr()
-        >>> print(result)
-        Deepsense(dim_size=2000)
-    """
     def get_param_info_list(self):
         return [
             ut.ParamInfo('config_path', _DEFAULT_CONFIG),
@@ -201,6 +236,48 @@ def aid_scores_from_name_scores(ibs, name_score_dicts, daid_list):
 
 @register_ibs_method
 def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
+    r"""
+    Matches an annotation using PIE, by calling PIE's k-means distance measure on PIE embeddings.
+
+    Args:
+        ibs (IBEISController): IBEIS controller object
+        qaid            (int): query annot
+        daid_list       (int): database annots
+            and directs PIE to the weight file, among other fields
+        config_path (str): path to a PIE config .json file that parameterizes the model
+            and directs PIE to the weight file, among other fields
+
+    CommandLine:
+        python -m ibeis_pie._plugin --test-pie_predict_light
+        python -m ibeis_pie._plugin --test-pie_predict_light:0
+
+    Example0:
+    >>> # ENABLE_DOCTEST
+    >>> import ibeis_pie
+    >>> ibs = ibeis_pie._plugin.pie_testdb_ibs()
+    >>> qaid = 2
+    >>> daids = [1,3,4,5]
+    >>> result = ibs.pie_predict_light(qaid, daids)
+    [{'distance': 0.7318770335113057, 'label': 'april'},
+    {'distance': 1.257755410232425, 'label': 'jel'},
+    {'distance': 1.378156086911126, 'label': 'valentine'},
+    {'distance': 1.575796497115955, 'label': 'candy'}]
+
+    Example1:
+    >>> Test that pie_predict_light and pie_predict return the same results
+    >>> # ENABLE_DOCTEST
+    >>> import ibeis_pie
+    >>> ibs = ibeis_pie._plugin.pie_testdb_ibs()
+    >>> qaid = 2
+    >>> daids = [1,3,4,5]
+    >>> pred_light = ibs.pie_predict_light(qaid, daids)
+    >>> pred       = ibs.pie_predict(qaid, daids)
+    [{'distance': 0.7318770335113057, 'label': 'april'},
+    {'distance': 1.257755410232425, 'label': 'jel'},
+    {'distance': 1.378156086911126, 'label': 'valentine'},
+    {'distance': 1.575796497115955, 'label': 'candy'}]
+
+    """
     # just call embeddings once bc of significant startup time on PIE's bulk embedding-generator
     all_aids  = daid_list + [qaid]
     all_embs  = ibs.pie_embedding(all_aids)
@@ -210,6 +287,17 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
     query_emb = np.array(all_embs[-1:])  # query_emb.shape = (1, 256)
     db_labels = np.array(ibs.get_annot_name_texts(daid_list))
 
+    from .predict import pred_light
+    ans = pred_light(query_emb, db_embs, db_labels, config_path)
+    return ans
+
+
+@register_ibs_method
+def pie_predict_light_2(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
+    db_embs   = np.array(ibs.pie_embedding(daid_list))
+    db_labels = np.array(ibs.get_annot_name_texts(daid_list))
+    # todo: cache this
+    query_emb = ibs.pie_compute_embedding([qaid])
     from .predict import pred_light
     ans = pred_light(query_emb, db_embs, db_labels, config_path)
     return ans
@@ -311,13 +399,12 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
 
 
 # Careful, this returns a different ibs than you sent in
-@register_ibs_method
-def pie_testdb_ibs(ibs):
+def pie_testdb_ibs():
     import ibeis
     testdb_name = 'manta-test'
     try:
         ans_ibs = ibeis.opendb(testdb_name)
-        aids = ibs.get_valid_annots()
+        aids = ans_ibs.get_valid_annots()
         assert len(aids) > 3
         return ans_ibs
     except:
@@ -342,16 +429,10 @@ def pie_testdb_ibs(ibs):
     return ans_ibs
 
 
-@register_ibs_method
-def pie_identify(ibs, aid_list):
-    # TODO
-    return
-
-
 if __name__ == '__main__':
     r"""
     CommandLine:
-        python -m ibeis_deepsense._plugin --allexamples
+        python -m ibeis_pie._plugin --allexamples
     """
     import multiprocessing
     multiprocessing.freeze_support()  # for win32
