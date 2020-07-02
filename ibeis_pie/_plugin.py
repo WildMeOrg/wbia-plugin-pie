@@ -98,10 +98,46 @@ def pie_embedding_depc(depc, aid_list, config=_DEFAULT_CONFIG_DICT):
 # TODO: delete the generated files in dbpath when we're done computing embeddings
 @register_ibs_method
 def pie_compute_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, output_dir=None, prefix=None, export=False):
-    dbpath = ibs.pie_preprocess(aid_list)
+    preproc_dir = ibs.pie_preprocess(aid_list)
     from .compute_db import compute
-    embeddings = compute(dbpath, config_path, output_dir, prefix, export)
+    embeddings = compute(preproc_dir, config_path, output_dir, prefix, export)
+    embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, preproc_dir)
     return embeddings
+
+
+# PIE embeddings are returned in alphabetical order by name_text, then annot UUID. Crazy, right?
+def fix_pie_embedding_order(ibs, embeddings, aid_list, preproc_dir):
+    from glob import glob
+    # this is the line of code used in PIE utils/preprocessing.py; our task is to undo this ordering
+    filepaths = glob(preproc_dir + '/*/*')
+    filepaths = [_get_parent_dir_and_fname_only(fpath) for fpath in filepaths]
+    # PIE messes with extensions, so throw those away
+    filepaths = [os.path.splitext(fp)[0] for fp in filepaths]
+
+    names  = ibs.get_annot_name_texts(aid_list)
+    fnames = ibs.get_annot_image_paths(aid_list)
+    fnames = [os.path.split(fname)[1] for fname in fnames]
+    aid_filepaths = [os.path.join(name, fname) for name, fname in zip(names, fnames)]
+    # PIE messes with extensions, so throw those away
+    aid_filepaths = [os.path.splitext(fp)[0] for fp in aid_filepaths]
+
+    # aid_filepaths and filepaths have the same entries in different orders
+    filepath_to_idx = {filepaths[i]: i for i in range(len(filepaths))}
+    def sorted_embedding(i):
+        key = aid_filepaths[i]
+        idx = filepath_to_idx[key]
+        emb = embeddings[idx]
+        return emb
+
+    sorted_embs = [sorted_embedding(i) for i in range(len(aid_list))]
+    return sorted_embs
+
+
+def _get_parent_dir_and_fname_only(fpath):
+    parent_path, fname = os.path.split(fpath)
+    parent_dir = os.path.split(parent_path)[1]
+    parent_dir_and_fname = os.path.join(parent_dir, fname)
+    return parent_dir_and_fname
 
 
 # This function calls the PIE image preprocessing method preproc_db.preproc,
