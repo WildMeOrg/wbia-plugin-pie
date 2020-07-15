@@ -205,9 +205,7 @@ KWARGS = OrderedDict(
         'local_scheme': 'dirty-tag',
     },
     # packages=find_packages(),
-    packages=[
-        'wbia_pie',
-    ],
+    packages=['wbia_pie',],
     package_dir={'wbia_pie': 'wbia_pie'},
     include_package_data=False,
     # List of classifiers available at:

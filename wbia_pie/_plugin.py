@@ -48,42 +48,41 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
             and directs PIE to the weight file, among other fields
 
     CommandLine:
-        python -m wbia_pie._plugin --test-pie_embedding
-        python -m wbia_pie._plugin --test-pie_embedding:0
+        python -m wbia_pie._plugin pie_embedding
 
-    Example0:
-    >>> # ENABLE_DOCTEST
-    >>> import wbia_pie
-    >>> import numpy as np
-    >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
-    >>> aids = ibs.get_valid_aids(species='Mobula birostris')
-    >>> embs_depc    = np.array(ibs.pie_embedding(aids, use_depc=True))
-    >>> embs_no_depc = np.array(ibs.pie_embedding(aids, use_depc=False))
-    >>> diffs = np.abs(embs_depc - embs_no_depc)
-    >>> assert diffs.max() < 1e-8
-    >>> # each embedding is 256 floats long so we'll just check a bit
-    >>> result = embs_depc[0][:20]
-    array([-0.03839333,  0.01182338,  0.02393869, -0.07164327, -0.04367629,
-           -0.00150531,  0.01324393,  0.10909598,  0.02349781,  0.08439559,
-           -0.06415793,  0.0110384 ,  0.03897202, -0.11256221,  0.00709192,
-            0.10403764,  0.00615681, -0.10405623,  0.0320793 , -0.0394897 ])
+    Example:
+        >>> # ENABLE_DOCTEST
+        >>> import wbia_pie
+        >>> import numpy as np
+        >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
+        >>> aids = ibs.get_valid_aids(species='Mobula birostris')
+        >>> embs_depc    = np.array(ibs.pie_embedding(aids, use_depc=True))
+        >>> embs_no_depc = np.array(ibs.pie_embedding(aids, use_depc=False))
+        >>> diffs = np.abs(embs_depc - embs_no_depc)
+        >>> assert diffs.max() < 1e-8
+        >>> # each embedding is 256 floats long so we'll just check a bit
+        >>> result = embs_depc[0][:20]
+        array([-0.03839333,  0.01182338,  0.02393869, -0.07164327, -0.04367629,
+               -0.00150531,  0.01324393,  0.10909598,  0.02349781,  0.08439559,
+               -0.06415793,  0.0110384 ,  0.03897202, -0.11256221,  0.00709192,
+                0.10403764,  0.00615681, -0.10405623,  0.0320793 , -0.0394897 ])
 
-    Example1:
-    >>> # ENABLE_DOCTEST
-    >>> # This tests that an aid's embedding is independent of the other aids processed in the same call
-    >>> import wbia_pie
-    >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
-    >>> aids = ibs.get_valid_aids(species='Mobula birostris')
-    >>> aids1 = aids[:-1]
-    >>> aids2 = aids[1:]
-    >>> embs1 = ibs.pie_compute_embedding(aids1)
-    >>> embs2 = ibs.pie_compute_embedding(aids2)
-    >>> # just look at the overlapping aids/embs
-    >>> embs1 = np.array(embs1[1:])
-    >>> embs2 = np.array(embs2[:-1])
-    >>> compare_embs = np.abs(embs1 - embs2)
-    >>> compare_embs.max() < 1e-8
-    True
+    Example:
+        >>> # ENABLE_DOCTEST
+        >>> # This tests that an aid's embedding is independent of the other aids processed in the same call
+        >>> import wbia_pie
+        >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
+        >>> aids = ibs.get_valid_aids(species='Mobula birostris')
+        >>> aids1 = aids[:-1]
+        >>> aids2 = aids[1:]
+        >>> embs1 = ibs.pie_compute_embedding(aids1)
+        >>> embs2 = ibs.pie_compute_embedding(aids2)
+        >>> # just look at the overlapping aids/embs
+        >>> embs1 = np.array(embs1[1:])
+        >>> embs2 = np.array(embs2[:-1])
+        >>> compare_embs = np.abs(embs1 - embs2)
+        >>> compare_embs.max() < 1e-8
+        True
 
     """
     if use_depc:
@@ -317,34 +316,33 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
             and directs PIE to the weight file, among other fields
 
     CommandLine:
-        python -m wbia_pie._plugin --test-pie_predict_light
-        python -m wbia_pie._plugin --test-pie_predict_light:0
+        python -m wbia_pie._plugin pie_predict_light:0
 
-    Example0:
-    >>> # ENABLE_DOCTEST
-    >>> import wbia_pie
-    >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
-    >>> qaid = 2  # name = candy
-    >>> daids = [1,3,4,5]
-    >>> result = ibs.pie_predict_light(qaid, daids)
-    [{'distance': 0.9821137124475428, 'label': 'candy'},
-     {'distance': 1.1391638476158368, 'label': 'valentine'},
-     {'distance': 1.3051054116154164, 'label': 'jel'},
-     {'distance': 1.378156086911126, 'label': 'april'}]
+    Example:
+        >>> # ENABLE_DOCTEST
+        >>> import wbia_pie
+        >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
+        >>> qaid = 2  # name = candy
+        >>> daids = [1,3,4,5]
+        >>> result = ibs.pie_predict_light(qaid, daids)
+        [{'distance': 0.9821137124475428, 'label': 'candy'},
+         {'distance': 1.1391638476158368, 'label': 'valentine'},
+         {'distance': 1.3051054116154164, 'label': 'jel'},
+         {'distance': 1.378156086911126, 'label': 'april'}]
 
-    Example1:
-    >>> Test that pie_predict_light and pie_predict return the same results
-    >>> # ENABLE_DOCTEST
-    >>> import wbia_pie
-    >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
-    >>> qaid = 2
-    >>> daids = [1,3,4,5]
-    >>> pred_light = ibs.pie_predict_light(qaid, daids)
-    >>> pred       = ibs.pie_predict(qaid, daids)
-    [{'distance': 0.7318770335113057, 'label': 'april'},
-    {'distance': 1.257755410232425, 'label': 'jel'},
-    {'distance': 1.378156086911126, 'label': 'valentine'},
-    {'distance': 1.575796497115955, 'label': 'candy'}]
+    Example:
+        >>> # ENABLE_DOCTEST
+        >>> # Test that pie_predict_light and pie_predict return the same results
+        >>> import wbia_pie
+        >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
+        >>> qaid = 2
+        >>> daids = [1,3,4,5]
+        >>> pred_light = ibs.pie_predict_light(qaid, daids)
+        >>> pred       = ibs.pie_predict(qaid, daids)
+        [{'distance': 0.7318770335113057, 'label': 'april'},
+        {'distance': 1.257755410232425, 'label': 'jel'},
+        {'distance': 1.378156086911126, 'label': 'valentine'},
+        {'distance': 1.575796497115955, 'label': 'candy'}]
 
     """
     # just call embeddings once bc of significant startup time on PIE's bulk embedding-generator
@@ -503,7 +501,9 @@ def pie_mass_accuracy(ibs, aid_list, daid_list=None):
 def accuracy_at_k(ibs, ranks, max_rank=10):
     counts = [ranks.count(i) for i in range(1, max_rank + 1)]
     percent_counts = [count / len(ranks) for count in counts]
-    cumulative_percent = [sum(percent_counts[:i]) for i in range(1, len(percent_counts) + 1)]
+    cumulative_percent = [
+        sum(percent_counts[:i]) for i in range(1, len(percent_counts) + 1)
+    ]
     return cumulative_percent
 
 
@@ -568,11 +568,5 @@ def pie_testdb_ibs():
 
 
 if __name__ == '__main__':
-    r"""
-    CommandLine:
-        python -m wbia_pie._plugin --allexamples
-    """
-    import multiprocessing
-
-    multiprocessing.freeze_support()  # for win32
-    ut.doctest_funcs()
+    import xdoctest as xdoc
+    xdoc.doctest_module(__file__)
