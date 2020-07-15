@@ -85,6 +85,8 @@ class BaseModel(object):
         predictions: numpy array with predictions (num_images, len_model_output)
         """
         print("base_model preproc_predict!")
+        # import utool as ut
+        # ut.embed()
         batch_idx = make_batches(imgs.shape[0], batch_size)
         imgs_preds = np.zeros((imgs.shape[0],)+self.model.get_output_shape_at(0)[1:])
         print('Computing predictions with the shape {}'.format(imgs_preds.shape))

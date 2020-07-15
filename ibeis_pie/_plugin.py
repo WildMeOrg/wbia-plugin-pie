@@ -52,20 +52,37 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
     Example0:
     >>> # ENABLE_DOCTEST
     >>> import ibeis_pie
+    >>> import numpy as np
     >>> ibs = ibeis_pie._plugin.pie_testdb_ibs()
     >>> aids = ibs.get_valid_aids(species='Mobula birostris')
-    >>> embs_depc    = ibs.pie_embedding(aids, use_depc=True)
-    >>> embs_no_depc = ibs.pie_embedding(aids, use_depc=False)
-    >>> diffs = embs_depc - embs_no_depc
-    >>> diffs = [4abs(diff) for diff in diffs]
-    >>> compare_depc = (embs_depc == embs_no_depc)
-    >>> assert compare_depc.all()
+    >>> embs_depc    = np.array(ibs.pie_embedding(aids, use_depc=True))
+    >>> embs_no_depc = np.array(ibs.pie_embedding(aids, use_depc=False))
+    >>> diffs = np.abs(embs_depc - embs_no_depc)
+    >>> assert diffs.max() < 1e-8
     >>> # each embedding is 256 floats long so we'll just check a bit
     >>> result = embs_depc[0][:20]
-    array([-0.07695036,  0.08611217,  0.01690802, -0.06757034, -0.04934874,
-       -0.00392486,  0.01672293,  0.10125934,  0.02688598,  0.12142057,
-       -0.08762568,  0.00754442, -0.01037392, -0.13900816,  0.00607268,
-        0.08011609, -0.01957191, -0.0222167 ,  0.02466557,  0.01921911])
+    array([-0.03839333,  0.01182338,  0.02393869, -0.07164327, -0.04367629,
+           -0.00150531,  0.01324393,  0.10909598,  0.02349781,  0.08439559,
+           -0.06415793,  0.0110384 ,  0.03897202, -0.11256221,  0.00709192,
+            0.10403764,  0.00615681, -0.10405623,  0.0320793 , -0.0394897 ])
+
+    Example1:
+    >>> # ENABLE_DOCTEST
+    >>> # This tests that an aid's embedding is independent of the other aids processed in the same call
+    >>> import ibeis_pie
+    >>> ibs = ibeis_pie._plugin.pie_testdb_ibs()
+    >>> aids = ibs.get_valid_aids(species='Mobula birostris')
+    >>> aids1 = aids[:-1]
+    >>> aids2 = aids[1:]
+    >>> embs1 = ibs.pie_compute_embedding(aids1)
+    >>> embs2 = ibs.pie_compute_embedding(aids2)
+    >>> # just look at the overlapping aids/embs
+    >>> embs1 = np.array(embs1[1:])
+    >>> embs2 = np.array(embs2[:-1])
+    >>> compare_embs = np.abs(embs1 - embs2)
+    >>> compare_embs.max() < 1e-8
+    True
+
     """
     if use_depc:
         config = {'config_path': config_path}
@@ -100,16 +117,12 @@ def pie_embedding_depc(depc, aid_list, config=_DEFAULT_CONFIG_DICT):
 def pie_compute_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, output_dir=None, prefix=None, export=False):
     preproc_dir = ibs.pie_preprocess(aid_list)
     from .compute_db import compute
-    embeddings = compute(preproc_dir, config_path, output_dir, prefix, export)
-    embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, preproc_dir)
+    embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export)
+    embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths)
     return embeddings
 
 
-# PIE embeddings are returned in alphabetical order by name_text, then annot UUID. Crazy, right?
-def fix_pie_embedding_order(ibs, embeddings, aid_list, preproc_dir):
-    from glob import glob
-    # this is the line of code used in PIE utils/preprocessing.py; our task is to undo this ordering
-    filepaths = glob(preproc_dir + '/*/*')
+def fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths):
     filepaths = [_get_parent_dir_and_fname_only(fpath) for fpath in filepaths]
     # PIE messes with extensions, so throw those away
     filepaths = [os.path.splitext(fp)[0] for fp in filepaths]
@@ -291,13 +304,13 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
     >>> # ENABLE_DOCTEST
     >>> import ibeis_pie
     >>> ibs = ibeis_pie._plugin.pie_testdb_ibs()
-    >>> qaid = 2
+    >>> qaid = 2  # name = candy
     >>> daids = [1,3,4,5]
     >>> result = ibs.pie_predict_light(qaid, daids)
-    [{'distance': 0.7318770335113057, 'label': 'april'},
-    {'distance': 1.257755410232425, 'label': 'jel'},
-    {'distance': 1.378156086911126, 'label': 'valentine'},
-    {'distance': 1.575796497115955, 'label': 'candy'}]
+    [{'distance': 0.9821137124475428, 'label': 'candy'},
+     {'distance': 1.1391638476158368, 'label': 'valentine'},
+     {'distance': 1.3051054116154164, 'label': 'jel'},
+     {'distance': 1.378156086911126, 'label': 'april'}]
 
     Example1:
     >>> Test that pie_predict_light and pie_predict return the same results
@@ -432,6 +445,59 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
     assert(max(diffs) < dist_tolerance,
            "Distances diverge at rank %s" % diffs.index(max(diffs)))
     print("Distances are all within tolerance of %s" % dist_tolerance)
+
+
+@register_ibs_method
+def pie_accuracy(ibs, qaid, daid_list):
+    daids = daid_list.copy()
+    daids.remove(qaid)
+    ans = ibs.pie_predict_light(qaid, daids)
+    ans_names = [row['label'] for row in ans]
+    ground_truth = ibs.get_annot_name_texts(qaid)
+    try:
+        rank = ans_names.index(ground_truth) + 1
+    except ValueError:
+        rank = -1
+    print('rank %s' % rank)
+    return rank
+
+
+@register_ibs_method
+def pie_mass_accuracy(ibs, aid_list):
+    ranks = [ibs.pie_accuracy(aid, aid_list) for aid in aid_list]
+    return ranks
+
+
+@register_ibs_method
+def accuracy_at_k(ibs, ranks, max_rank=10):
+    counts = [ranks.count(i) for i in range(1, max_rank + 1)]
+    percent_counts = [count / len(ranks) for count in counts]
+    cumulative_percent = [sum(percent_counts[:i]) for i in range(len(percent_counts))]
+
+
+@register_ibs_method
+def subset_with_resights(ibs, aid_list, n=3):
+    names = ibs.get_annot_name_rowids(aid_list)
+    name_counts = _count_dict(names)
+    good_annots = [aid for aid, name in zip(aid_list, names)
+                   if name_counts[name] >= n]
+    return good_annots
+
+
+def _count_dict(item_list):
+    from collections import defaultdict
+    count_dict = defaultdict(int)
+    for item in item_list:
+        count_dict[item] += 1
+    return dict(count_dict)
+
+
+def _invert_dict(d):
+    from collections import defaultdict
+    inverted = defaultdict(list)
+    for key, value in d.items():
+        inverted[value].append(key)
+    return dict(inverted)
 
 
 # Careful, this returns a different ibs than you sent in

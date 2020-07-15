@@ -126,7 +126,7 @@ def compute(dbpath, config_path, output_dir, prefix, export=False):
         print("Done computing embeddings, exporting to %s" % output_dir)
         export_emb(db_preds, info=[db_labels, db_files, db_names],
                    folder=output_dir, prefix=prefix, info_header=['class,file,name'])
-    return db_preds
+    return db_preds, db_files
 
 
 if __name__ == '__main__':
