@@ -1,0 +1,15 @@
+networkx
+tensorflow
+keras
+scikit-image
+scikit-learn
+numpy >= 1.11.1
+opencv-python == 3.4.10.35
+scipy
+matplotlib
+
+# wbia
+# wbia-utool
+
+ibeis
+utool
