@@ -57,7 +57,3 @@ Type "help", "copyright", "credits" or "license" for more information.
 The function from the plugin is automatically added as a method to the ibs object
 as `ibs.ibeis_deepsense_hello_world()`, which is registered using the
 `@register_ibs_method decorator`.
-
-
-
-

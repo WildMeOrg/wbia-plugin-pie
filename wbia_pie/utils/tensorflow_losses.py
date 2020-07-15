@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2017 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,16 +30,18 @@ from tensorflow.python.ops import nn
 from tensorflow.python.ops import script_ops
 from tensorflow.python.ops import sparse_ops
 from tensorflow.python.summary import summary
+
 try:
-  # pylint: disable=g-import-not-at-top
-  from sklearn import metrics
-  HAS_SKLEARN = True
+    # pylint: disable=g-import-not-at-top
+    from sklearn import metrics
+
+    HAS_SKLEARN = True
 except ImportError:
-  HAS_SKLEARN = False
+    HAS_SKLEARN = False
 
 
 def pairwise_distance(feature, squared=False):
-  """Computes the pairwise distance matrix with numerical stability.
+    """Computes the pairwise distance matrix with numerical stability.
 
   output[i, j] = || feature[i, :] - feature[j, :] ||_2
 
@@ -49,41 +52,42 @@ def pairwise_distance(feature, squared=False):
   Returns:
     pairwise_distances: 2-D Tensor of size [number of data, number of data].
   """
-  pairwise_distances_squared = math_ops.add(
-      math_ops.reduce_sum(math_ops.square(feature), axis=[1], keepdims=True),
-      math_ops.reduce_sum(
-          math_ops.square(array_ops.transpose(feature)),
-          axis=[0],
-          keepdims=True)) - 2.0 * math_ops.matmul(feature,
-                                                  array_ops.transpose(feature))
+    pairwise_distances_squared = math_ops.add(
+        math_ops.reduce_sum(math_ops.square(feature), axis=[1], keepdims=True),
+        math_ops.reduce_sum(
+            math_ops.square(array_ops.transpose(feature)), axis=[0], keepdims=True
+        ),
+    ) - 2.0 * math_ops.matmul(feature, array_ops.transpose(feature))
 
-  # Deal with numerical inaccuracies. Set small negatives to zero.
-  pairwise_distances_squared = math_ops.maximum(pairwise_distances_squared, 0.0)
-  # Get the mask where the zero distances are at.
-  error_mask = math_ops.less_equal(pairwise_distances_squared, 0.0)
+    # Deal with numerical inaccuracies. Set small negatives to zero.
+    pairwise_distances_squared = math_ops.maximum(pairwise_distances_squared, 0.0)
+    # Get the mask where the zero distances are at.
+    error_mask = math_ops.less_equal(pairwise_distances_squared, 0.0)
 
-  # Optionally take the sqrt.
-  if squared:
-    pairwise_distances = pairwise_distances_squared
-  else:
-    pairwise_distances = math_ops.sqrt(
-        pairwise_distances_squared + math_ops.to_float(error_mask) * 1e-16)
+    # Optionally take the sqrt.
+    if squared:
+        pairwise_distances = pairwise_distances_squared
+    else:
+        pairwise_distances = math_ops.sqrt(
+            pairwise_distances_squared + math_ops.to_float(error_mask) * 1e-16
+        )
 
-  # Undo conditionally adding 1e-16.
-  pairwise_distances = math_ops.multiply(
-      pairwise_distances, math_ops.to_float(math_ops.logical_not(error_mask)))
+    # Undo conditionally adding 1e-16.
+    pairwise_distances = math_ops.multiply(
+        pairwise_distances, math_ops.to_float(math_ops.logical_not(error_mask))
+    )
 
-  num_data = array_ops.shape(feature)[0]
-  # Explicitly set diagonals to zero.
-  mask_offdiagonals = array_ops.ones_like(pairwise_distances) - array_ops.diag(
-      array_ops.ones([num_data]))
-  pairwise_distances = math_ops.multiply(pairwise_distances, mask_offdiagonals)
-  return pairwise_distances
+    num_data = array_ops.shape(feature)[0]
+    # Explicitly set diagonals to zero.
+    mask_offdiagonals = array_ops.ones_like(pairwise_distances) - array_ops.diag(
+        array_ops.ones([num_data])
+    )
+    pairwise_distances = math_ops.multiply(pairwise_distances, mask_offdiagonals)
+    return pairwise_distances
 
 
-def tf_contrastive_loss(labels, embeddings_anchor, embeddings_positive,
-                     margin=1.0):
-  """Computes the contrastive loss.
+def tf_contrastive_loss(labels, embeddings_anchor, embeddings_positive, margin=1.0):
+    """Computes the contrastive loss.
 
   This loss encourages the embedding to be close to each other for
     the samples of the same label and the embedding to be far apart at least
@@ -102,22 +106,23 @@ def tf_contrastive_loss(labels, embeddings_anchor, embeddings_positive,
   Returns:
     contrastive_loss: tf.float32 scalar.
   """
-  # Get per pair distances
-  distances = math_ops.sqrt(
-      math_ops.reduce_sum(
-          math_ops.square(embeddings_anchor - embeddings_positive), 1))
+    # Get per pair distances
+    distances = math_ops.sqrt(
+        math_ops.reduce_sum(math_ops.square(embeddings_anchor - embeddings_positive), 1)
+    )
 
-  # Add contrastive loss for the siamese network.
-  #   label here is {0,1} for neg, pos.
-  return math_ops.reduce_mean(
-      math_ops.to_float(labels) * math_ops.square(distances) +
-      (1. - math_ops.to_float(labels)) *
-      math_ops.square(math_ops.maximum(margin - distances, 0.)),
-      name='contrastive_loss')
+    # Add contrastive loss for the siamese network.
+    #   label here is {0,1} for neg, pos.
+    return math_ops.reduce_mean(
+        math_ops.to_float(labels) * math_ops.square(distances)
+        + (1.0 - math_ops.to_float(labels))
+        * math_ops.square(math_ops.maximum(margin - distances, 0.0)),
+        name='contrastive_loss',
+    )
 
 
 def masked_maximum(data, mask, dim=1):
-  """Computes the axis wise maximum over chosen elements.
+    """Computes the axis wise maximum over chosen elements.
 
   Args:
     data: 2-D float `Tensor` of size [n, m].
@@ -128,15 +133,18 @@ def masked_maximum(data, mask, dim=1):
     masked_maximums: N-D `Tensor`.
       The maximized dimension is of size 1 after the operation.
   """
-  axis_minimums = math_ops.reduce_min(data, dim, keepdims=True)
-  masked_maximums = math_ops.reduce_max(
-      math_ops.multiply(data - axis_minimums, mask), dim,
-      keepdims=True) + axis_minimums
-  return masked_maximums
+    axis_minimums = math_ops.reduce_min(data, dim, keepdims=True)
+    masked_maximums = (
+        math_ops.reduce_max(
+            math_ops.multiply(data - axis_minimums, mask), dim, keepdims=True
+        )
+        + axis_minimums
+    )
+    return masked_maximums
 
 
 def masked_minimum(data, mask, dim=1):
-  """Computes the axis wise minimum over chosen elements.
+    """Computes the axis wise minimum over chosen elements.
 
   Args:
     data: 2-D float `Tensor` of size [n, m].
@@ -147,15 +155,18 @@ def masked_minimum(data, mask, dim=1):
     masked_minimums: N-D `Tensor`.
       The minimized dimension is of size 1 after the operation.
   """
-  axis_maximums = math_ops.reduce_max(data, dim, keepdims=True)
-  masked_minimums = math_ops.reduce_min(
-      math_ops.multiply(data - axis_maximums, mask), dim,
-      keepdims=True) + axis_maximums
-  return masked_minimums
+    axis_maximums = math_ops.reduce_max(data, dim, keepdims=True)
+    masked_minimums = (
+        math_ops.reduce_min(
+            math_ops.multiply(data - axis_maximums, mask), dim, keepdims=True
+        )
+        + axis_maximums
+    )
+    return masked_minimums
 
 
 def triplet_semihard_loss(y_true, y_preds, margin=0.5):
-  """Computes the triplet loss with semi-hard negative mining.
+    """Computes the triplet loss with semi-hard negative mining.
 
   The loss encourages the positive distances (between a pair of embeddings with
   the same labels) to be smaller than the minimum negative distance among
@@ -174,77 +185,86 @@ def triplet_semihard_loss(y_true, y_preds, margin=0.5):
   Returns:
     triplet_loss: tf.float32 scalar.
   """
-  labels=y_true
-  embeddings=y_preds
-  
-  # Reshape [batch_size] label tensor to a [batch_size, 1] label tensor.
-  lshape = array_ops.shape(labels)
-  #assert lshape.shape == 1
-  labels = array_ops.reshape(labels, [lshape[0], 1])
+    labels = y_true
+    embeddings = y_preds
 
-  # Build pairwise squared distance matrix.
-  pdist_matrix = pairwise_distance(embeddings, squared=True)
-  # Build pairwise binary adjacency matrix.
-  adjacency = math_ops.equal(labels, array_ops.transpose(labels))
-  # Invert so we can select negatives only.
-  adjacency_not = math_ops.logical_not(adjacency)
+    # Reshape [batch_size] label tensor to a [batch_size, 1] label tensor.
+    lshape = array_ops.shape(labels)
+    # assert lshape.shape == 1
+    labels = array_ops.reshape(labels, [lshape[0], 1])
 
-  batch_size = array_ops.size(labels)
-  #print('Batch size: '.format('batch_size'))
+    # Build pairwise squared distance matrix.
+    pdist_matrix = pairwise_distance(embeddings, squared=True)
+    # Build pairwise binary adjacency matrix.
+    adjacency = math_ops.equal(labels, array_ops.transpose(labels))
+    # Invert so we can select negatives only.
+    adjacency_not = math_ops.logical_not(adjacency)
 
-  # Compute the mask.
-  pdist_matrix_tile = array_ops.tile(pdist_matrix, [batch_size, 1])
-  mask = math_ops.logical_and(
-      array_ops.tile(adjacency_not, [batch_size, 1]),
-      math_ops.greater(
-          pdist_matrix_tile, array_ops.reshape(
-              array_ops.transpose(pdist_matrix), [-1, 1])))
-  mask_final = array_ops.reshape(
-      math_ops.greater(
-          math_ops.reduce_sum(
-              math_ops.cast(mask, dtype=dtypes.float32), 1, keepdims=True),
-          0.0), [batch_size, batch_size])
-  mask_final = array_ops.transpose(mask_final)
-  #print('mask_final_sum: '.format(math_ops.reduce_sum(math_ops.cast(mask_final, dtype=dtypes.float32))))
+    batch_size = array_ops.size(labels)
+    # print('Batch size: '.format('batch_size'))
 
-  adjacency_not = math_ops.cast(adjacency_not, dtype=dtypes.float32)
-  mask = math_ops.cast(mask, dtype=dtypes.float32)
+    # Compute the mask.
+    pdist_matrix_tile = array_ops.tile(pdist_matrix, [batch_size, 1])
+    mask = math_ops.logical_and(
+        array_ops.tile(adjacency_not, [batch_size, 1]),
+        math_ops.greater(
+            pdist_matrix_tile,
+            array_ops.reshape(array_ops.transpose(pdist_matrix), [-1, 1]),
+        ),
+    )
+    mask_final = array_ops.reshape(
+        math_ops.greater(
+            math_ops.reduce_sum(
+                math_ops.cast(mask, dtype=dtypes.float32), 1, keepdims=True
+            ),
+            0.0,
+        ),
+        [batch_size, batch_size],
+    )
+    mask_final = array_ops.transpose(mask_final)
+    # print('mask_final_sum: '.format(math_ops.reduce_sum(math_ops.cast(mask_final, dtype=dtypes.float32))))
 
-  # negatives_outside: smallest D_an where D_an > D_ap.
-  negatives_outside = array_ops.reshape(
-      masked_minimum(pdist_matrix_tile, mask), [batch_size, batch_size])
-  negatives_outside = array_ops.transpose(negatives_outside)
+    adjacency_not = math_ops.cast(adjacency_not, dtype=dtypes.float32)
+    mask = math_ops.cast(mask, dtype=dtypes.float32)
 
-  # negatives_inside: largest D_an.
-  negatives_inside = array_ops.tile(
-      masked_maximum(pdist_matrix, adjacency_not), [1, batch_size])
-  semi_hard_negatives = array_ops.where(
-      mask_final, negatives_outside, negatives_inside)
+    # negatives_outside: smallest D_an where D_an > D_ap.
+    negatives_outside = array_ops.reshape(
+        masked_minimum(pdist_matrix_tile, mask), [batch_size, batch_size]
+    )
+    negatives_outside = array_ops.transpose(negatives_outside)
 
-  loss_mat = math_ops.add(margin, pdist_matrix - semi_hard_negatives)
+    # negatives_inside: largest D_an.
+    negatives_inside = array_ops.tile(
+        masked_maximum(pdist_matrix, adjacency_not), [1, batch_size]
+    )
+    semi_hard_negatives = array_ops.where(mask_final, negatives_outside, negatives_inside)
 
-  mask_positives = math_ops.cast(
-      adjacency, dtype=dtypes.float32) - array_ops.diag(
-          array_ops.ones([batch_size]))
+    loss_mat = math_ops.add(margin, pdist_matrix - semi_hard_negatives)
 
-  # In lifted-struct, the authors multiply 0.5 for upper triangular
-  #   in semihard, they take all positive pairs except the diagonal.
-  num_positives = math_ops.reduce_sum(mask_positives)
+    mask_positives = math_ops.cast(adjacency, dtype=dtypes.float32) - array_ops.diag(
+        array_ops.ones([batch_size])
+    )
 
-  triplet_loss = math_ops.truediv(
-      math_ops.reduce_sum(
-          math_ops.maximum(
-              math_ops.multiply(loss_mat, mask_positives), 0.0)),
-      num_positives,
-      name='triplet_semihard_loss')
+    # In lifted-struct, the authors multiply 0.5 for upper triangular
+    #   in semihard, they take all positive pairs except the diagonal.
+    num_positives = math_ops.reduce_sum(mask_positives)
 
-  return triplet_loss
+    triplet_loss = math_ops.truediv(
+        math_ops.reduce_sum(
+            math_ops.maximum(math_ops.multiply(loss_mat, mask_positives), 0.0)
+        ),
+        num_positives,
+        name='triplet_semihard_loss',
+    )
+
+    return triplet_loss
 
 
 # pylint: disable=line-too-long
-def npairs_loss(labels, embeddings_anchor, embeddings_positive,
-                reg_lambda=0.002, print_losses=False):
-  """Computes the npairs loss.
+def npairs_loss(
+    labels, embeddings_anchor, embeddings_positive, reg_lambda=0.002, print_losses=False
+):
+    """Computes the npairs loss.
 
   Npairs loss expects paired data where a pair is composed of samples from the
   same labels and each pairs in the minibatch have different labels. The loss
@@ -269,43 +289,49 @@ def npairs_loss(labels, embeddings_anchor, embeddings_positive,
   Returns:
     npairs_loss: tf.float32 scalar.
   """
-  # pylint: enable=line-too-long
-  # Add the regularizer on the embedding.
-  reg_anchor = math_ops.reduce_mean(
-      math_ops.reduce_sum(math_ops.square(embeddings_anchor), 1))
-  reg_positive = math_ops.reduce_mean(
-      math_ops.reduce_sum(math_ops.square(embeddings_positive), 1))
-  l2loss = math_ops.multiply(
-      0.25 * reg_lambda, reg_anchor + reg_positive, name='l2loss')
+    # pylint: enable=line-too-long
+    # Add the regularizer on the embedding.
+    reg_anchor = math_ops.reduce_mean(
+        math_ops.reduce_sum(math_ops.square(embeddings_anchor), 1)
+    )
+    reg_positive = math_ops.reduce_mean(
+        math_ops.reduce_sum(math_ops.square(embeddings_positive), 1)
+    )
+    l2loss = math_ops.multiply(
+        0.25 * reg_lambda, reg_anchor + reg_positive, name='l2loss'
+    )
 
-  # Get per pair similarities.
-  similarity_matrix = math_ops.matmul(
-      embeddings_anchor, embeddings_positive, transpose_a=False,
-      transpose_b=True)
+    # Get per pair similarities.
+    similarity_matrix = math_ops.matmul(
+        embeddings_anchor, embeddings_positive, transpose_a=False, transpose_b=True
+    )
 
-  # Reshape [batch_size] label tensor to a [batch_size, 1] label tensor.
-  lshape = array_ops.shape(labels)
-  assert lshape.shape == 1
-  labels = array_ops.reshape(labels, [lshape[0], 1])
+    # Reshape [batch_size] label tensor to a [batch_size, 1] label tensor.
+    lshape = array_ops.shape(labels)
+    assert lshape.shape == 1
+    labels = array_ops.reshape(labels, [lshape[0], 1])
 
-  labels_remapped = math_ops.to_float(
-      math_ops.equal(labels, array_ops.transpose(labels)))
-  labels_remapped /= math_ops.reduce_sum(labels_remapped, 1, keepdims=True)
+    labels_remapped = math_ops.to_float(
+        math_ops.equal(labels, array_ops.transpose(labels))
+    )
+    labels_remapped /= math_ops.reduce_sum(labels_remapped, 1, keepdims=True)
 
-  # Add the softmax loss.
-  xent_loss = nn.softmax_cross_entropy_with_logits(
-      logits=similarity_matrix, labels=labels_remapped)
-  xent_loss = math_ops.reduce_mean(xent_loss, name='xentropy')
+    # Add the softmax loss.
+    xent_loss = nn.softmax_cross_entropy_with_logits(
+        logits=similarity_matrix, labels=labels_remapped
+    )
+    xent_loss = math_ops.reduce_mean(xent_loss, name='xentropy')
 
-  if print_losses:
-    xent_loss = logging_ops.Print(
-        xent_loss, ['cross entropy:', xent_loss, 'l2loss:', l2loss])
+    if print_losses:
+        xent_loss = logging_ops.Print(
+            xent_loss, ['cross entropy:', xent_loss, 'l2loss:', l2loss]
+        )
 
-  return l2loss + xent_loss
+    return l2loss + xent_loss
 
 
 def _build_multilabel_adjacency(sparse_labels):
-  """Builds multilabel adjacency matrix.
+    """Builds multilabel adjacency matrix.
 
   As of March 14th, 2017, there's no op for the dot product between
   two sparse tensors in TF. However, there is `sparse_minimum` op which is
@@ -318,27 +344,35 @@ def _build_multilabel_adjacency(sparse_labels):
   Returns:
     adjacency_matrix: 2-D dense `Tensor`.
   """
-  num_pairs = len(sparse_labels)
-  adjacency_matrix = array_ops.zeros([num_pairs, num_pairs])
-  for i in range(num_pairs):
-    for j in range(num_pairs):
-      sparse_dot_product = math_ops.to_float(
-          sparse_ops.sparse_reduce_sum(sparse_ops.sparse_minimum(
-              sparse_labels[i], sparse_labels[j])))
-      sparse_dot_product = array_ops.expand_dims(sparse_dot_product, 0)
-      sparse_dot_product = array_ops.expand_dims(sparse_dot_product, 1)
-      one_hot_matrix = array_ops.pad(sparse_dot_product,
-                                     [[i, num_pairs-i-1],
-                                      [j, num_pairs-j-1]], 'CONSTANT')
-      adjacency_matrix += one_hot_matrix
+    num_pairs = len(sparse_labels)
+    adjacency_matrix = array_ops.zeros([num_pairs, num_pairs])
+    for i in range(num_pairs):
+        for j in range(num_pairs):
+            sparse_dot_product = math_ops.to_float(
+                sparse_ops.sparse_reduce_sum(
+                    sparse_ops.sparse_minimum(sparse_labels[i], sparse_labels[j])
+                )
+            )
+            sparse_dot_product = array_ops.expand_dims(sparse_dot_product, 0)
+            sparse_dot_product = array_ops.expand_dims(sparse_dot_product, 1)
+            one_hot_matrix = array_ops.pad(
+                sparse_dot_product,
+                [[i, num_pairs - i - 1], [j, num_pairs - j - 1]],
+                'CONSTANT',
+            )
+            adjacency_matrix += one_hot_matrix
 
-  return adjacency_matrix
+    return adjacency_matrix
 
 
-def npairs_loss_multilabel(sparse_labels, embeddings_anchor,
-                           embeddings_positive, reg_lambda=0.002,
-                           print_losses=False):
-  r"""Computes the npairs loss with multilabel data.
+def npairs_loss_multilabel(
+    sparse_labels,
+    embeddings_anchor,
+    embeddings_positive,
+    reg_lambda=0.002,
+    print_losses=False,
+):
+    r"""Computes the npairs loss with multilabel data.
 
   Npairs loss expects paired data where a pair is composed of samples from the
   same labels and each pairs in the minibatch have different labels. The loss
@@ -370,47 +404,52 @@ def npairs_loss_multilabel(sparse_labels, embeddings_anchor,
   Raises:
     TypeError: When the specified sparse_labels is not a `SparseTensor`.
   """
-  if False in [isinstance(
-      l, sparse_tensor.SparseTensor) for l in sparse_labels]:
-    raise TypeError(
-        'sparse_labels must be a list of SparseTensors, but got %s' % str(
-            sparse_labels))
+    if False in [isinstance(l, sparse_tensor.SparseTensor) for l in sparse_labels]:
+        raise TypeError(
+            'sparse_labels must be a list of SparseTensors, but got %s'
+            % str(sparse_labels)
+        )
 
-  with ops.name_scope('NpairsLossMultiLabel'):
-    # Add the regularizer on the embedding.
-    reg_anchor = math_ops.reduce_mean(
-        math_ops.reduce_sum(math_ops.square(embeddings_anchor), 1))
-    reg_positive = math_ops.reduce_mean(
-        math_ops.reduce_sum(math_ops.square(embeddings_positive), 1))
-    l2loss = math_ops.multiply(0.25 * reg_lambda,
-                               reg_anchor + reg_positive, name='l2loss')
+    with ops.name_scope('NpairsLossMultiLabel'):
+        # Add the regularizer on the embedding.
+        reg_anchor = math_ops.reduce_mean(
+            math_ops.reduce_sum(math_ops.square(embeddings_anchor), 1)
+        )
+        reg_positive = math_ops.reduce_mean(
+            math_ops.reduce_sum(math_ops.square(embeddings_positive), 1)
+        )
+        l2loss = math_ops.multiply(
+            0.25 * reg_lambda, reg_anchor + reg_positive, name='l2loss'
+        )
 
-    # Get per pair similarities.
-    similarity_matrix = math_ops.matmul(
-        embeddings_anchor, embeddings_positive, transpose_a=False,
-        transpose_b=True)
+        # Get per pair similarities.
+        similarity_matrix = math_ops.matmul(
+            embeddings_anchor, embeddings_positive, transpose_a=False, transpose_b=True
+        )
 
-    # TODO(coreylynch): need to check the sparse values
-    # TODO(coreylynch): are composed only of 0's and 1's.
+        # TODO(coreylynch): need to check the sparse values
+        # TODO(coreylynch): are composed only of 0's and 1's.
 
-    multilabel_adjacency_matrix = _build_multilabel_adjacency(sparse_labels)
-    labels_remapped = math_ops.to_float(multilabel_adjacency_matrix)
-    labels_remapped /= math_ops.reduce_sum(labels_remapped, 1, keepdims=True)
+        multilabel_adjacency_matrix = _build_multilabel_adjacency(sparse_labels)
+        labels_remapped = math_ops.to_float(multilabel_adjacency_matrix)
+        labels_remapped /= math_ops.reduce_sum(labels_remapped, 1, keepdims=True)
 
-    # Add the softmax loss.
-    xent_loss = nn.softmax_cross_entropy_with_logits(
-        logits=similarity_matrix, labels=labels_remapped)
-    xent_loss = math_ops.reduce_mean(xent_loss, name='xentropy')
+        # Add the softmax loss.
+        xent_loss = nn.softmax_cross_entropy_with_logits(
+            logits=similarity_matrix, labels=labels_remapped
+        )
+        xent_loss = math_ops.reduce_mean(xent_loss, name='xentropy')
 
-    if print_losses:
-      xent_loss = logging_ops.Print(
-          xent_loss, ['cross entropy:', xent_loss, 'l2loss:', l2loss])
+        if print_losses:
+            xent_loss = logging_ops.Print(
+                xent_loss, ['cross entropy:', xent_loss, 'l2loss:', l2loss]
+            )
 
-    return l2loss + xent_loss
+        return l2loss + xent_loss
 
 
 def lifted_struct_loss(y_true, y_preds, margin=1.0):
-  """Computes the lifted structured loss.
+    """Computes the lifted structured loss.
 
   The loss encourages the positive distances (between a pair of embeddings
   with the same labels) to be smaller than any negative distances (between a
@@ -428,77 +467,86 @@ def lifted_struct_loss(y_true, y_preds, margin=1.0):
   Returns:
     lifted_loss: tf.float32 scalar.
   """
-  labels=y_true
-  embeddings=y_preds
-  # Reshape [batch_size] label tensor to a [batch_size, 1] label tensor.
-  lshape = array_ops.shape(labels)
-  #assert lshape.shape == 1
-  labels = array_ops.reshape(labels, [lshape[0], 1])
+    labels = y_true
+    embeddings = y_preds
+    # Reshape [batch_size] label tensor to a [batch_size, 1] label tensor.
+    lshape = array_ops.shape(labels)
+    # assert lshape.shape == 1
+    labels = array_ops.reshape(labels, [lshape[0], 1])
 
-  # Build pairwise squared distance matrix.
-  pairwise_distances = pairwise_distance(embeddings)
+    # Build pairwise squared distance matrix.
+    pairwise_distances = pairwise_distance(embeddings)
 
-  # Build pairwise binary adjacency matrix.
-  adjacency = math_ops.equal(labels, array_ops.transpose(labels))
-  # Invert so we can select negatives only.
-  adjacency_not = math_ops.logical_not(adjacency)
+    # Build pairwise binary adjacency matrix.
+    adjacency = math_ops.equal(labels, array_ops.transpose(labels))
+    # Invert so we can select negatives only.
+    adjacency_not = math_ops.logical_not(adjacency)
 
-  batch_size = array_ops.size(labels)
+    batch_size = array_ops.size(labels)
 
-  diff = margin - pairwise_distances
-  mask = math_ops.cast(adjacency_not, dtype=dtypes.float32)
-  # Safe maximum: Temporarily shift negative distances
-  #   above zero before taking max.
-  #     this is to take the max only among negatives.
-  row_minimums = math_ops.reduce_min(diff, 1, keepdims=True)
-  row_negative_maximums = math_ops.reduce_max(
-      math_ops.multiply(diff - row_minimums, mask), 1,
-      keepdims=True) + row_minimums
+    diff = margin - pairwise_distances
+    mask = math_ops.cast(adjacency_not, dtype=dtypes.float32)
+    # Safe maximum: Temporarily shift negative distances
+    #   above zero before taking max.
+    #     this is to take the max only among negatives.
+    row_minimums = math_ops.reduce_min(diff, 1, keepdims=True)
+    row_negative_maximums = (
+        math_ops.reduce_max(
+            math_ops.multiply(diff - row_minimums, mask), 1, keepdims=True
+        )
+        + row_minimums
+    )
 
-  # Compute the loss.
-  # Keep track of matrix of maximums where M_ij = max(m_i, m_j)
-  #   where m_i is the max of alpha - negative D_i's.
-  # This matches the Caffe loss layer implementation at:
-  #   https://github.com/rksltnl/Caffe-Deep-Metric-Learning-CVPR16/blob/0efd7544a9846f58df923c8b992198ba5c355454/src/caffe/layers/lifted_struct_similarity_softmax_layer.cpp  # pylint: disable=line-too-long
+    # Compute the loss.
+    # Keep track of matrix of maximums where M_ij = max(m_i, m_j)
+    #   where m_i is the max of alpha - negative D_i's.
+    # This matches the Caffe loss layer implementation at:
+    #   https://github.com/rksltnl/Caffe-Deep-Metric-Learning-CVPR16/blob/0efd7544a9846f58df923c8b992198ba5c355454/src/caffe/layers/lifted_struct_similarity_softmax_layer.cpp  # pylint: disable=line-too-long
 
-  max_elements = math_ops.maximum(
-      row_negative_maximums, array_ops.transpose(row_negative_maximums))
-  diff_tiled = array_ops.tile(diff, [batch_size, 1])
-  mask_tiled = array_ops.tile(mask, [batch_size, 1])
-  max_elements_vect = array_ops.reshape(
-      array_ops.transpose(max_elements), [-1, 1])
+    max_elements = math_ops.maximum(
+        row_negative_maximums, array_ops.transpose(row_negative_maximums)
+    )
+    diff_tiled = array_ops.tile(diff, [batch_size, 1])
+    mask_tiled = array_ops.tile(mask, [batch_size, 1])
+    max_elements_vect = array_ops.reshape(array_ops.transpose(max_elements), [-1, 1])
 
-  loss_exp_left = array_ops.reshape(
-      math_ops.reduce_sum(
-          math_ops.multiply(
-              math_ops.exp(diff_tiled - max_elements_vect), mask_tiled),
-          1,
-          keepdims=True), [batch_size, batch_size])
+    loss_exp_left = array_ops.reshape(
+        math_ops.reduce_sum(
+            math_ops.multiply(math_ops.exp(diff_tiled - max_elements_vect), mask_tiled),
+            1,
+            keepdims=True,
+        ),
+        [batch_size, batch_size],
+    )
 
-  loss_mat = max_elements + math_ops.log(
-      loss_exp_left + array_ops.transpose(loss_exp_left))
-  # Add the positive distance.
-  loss_mat += pairwise_distances
+    loss_mat = max_elements + math_ops.log(
+        loss_exp_left + array_ops.transpose(loss_exp_left)
+    )
+    # Add the positive distance.
+    loss_mat += pairwise_distances
 
-  mask_positives = math_ops.cast(
-      adjacency, dtype=dtypes.float32) - array_ops.diag(
-          array_ops.ones([batch_size]))
+    mask_positives = math_ops.cast(adjacency, dtype=dtypes.float32) - array_ops.diag(
+        array_ops.ones([batch_size])
+    )
 
-  # *0.5 for upper triangular, and another *0.5 for 1/2 factor for loss^2.
-  num_positives = math_ops.reduce_sum(mask_positives) / 2.0
+    # *0.5 for upper triangular, and another *0.5 for 1/2 factor for loss^2.
+    num_positives = math_ops.reduce_sum(mask_positives) / 2.0
 
-  lifted_loss = math_ops.truediv(
-      0.25 * math_ops.reduce_sum(
-          math_ops.square(
-              math_ops.maximum(
-                  math_ops.multiply(loss_mat, mask_positives), 0.0))),
-      num_positives,
-      name='liftedstruct_loss')
-  return lifted_loss
+    lifted_loss = math_ops.truediv(
+        0.25
+        * math_ops.reduce_sum(
+            math_ops.square(
+                math_ops.maximum(math_ops.multiply(loss_mat, mask_positives), 0.0)
+            )
+        ),
+        num_positives,
+        name='liftedstruct_loss',
+    )
+    return lifted_loss
 
 
 def update_1d_tensor(y, index, value):
-  """Updates 1d tensor y so that y[index] = value.
+    """Updates 1d tensor y so that y[index] = value.
 
   Args:
     y: 1-D Tensor.
@@ -508,17 +556,17 @@ def update_1d_tensor(y, index, value):
   Returns:
     y_mod: 1-D Tensor. Tensor y after the update.
   """
-  value = array_ops.squeeze(value)
-  # modify the 1D tensor x at index with value.
-  # ex) chosen_ids = update_1D_tensor(chosen_ids, cluster_idx, best_medoid)
-  y_before = array_ops.slice(y, [0], [index])
-  y_after = array_ops.slice(y, [index + 1], [-1])
-  y_mod = array_ops.concat([y_before, [value], y_after], 0)
-  return y_mod
+    value = array_ops.squeeze(value)
+    # modify the 1D tensor x at index with value.
+    # ex) chosen_ids = update_1D_tensor(chosen_ids, cluster_idx, best_medoid)
+    y_before = array_ops.slice(y, [0], [index])
+    y_after = array_ops.slice(y, [index + 1], [-1])
+    y_mod = array_ops.concat([y_before, [value], y_after], 0)
+    return y_mod
 
 
 def get_cluster_assignment(pairwise_distances, centroid_ids):
-  """Assign data points to the neareset centroids.
+    """Assign data points to the neareset centroids.
 
   Tensorflow has numerical instability and doesn't always choose
     the data point with theoretically zero distance as it's nearest neighbor.
@@ -533,31 +581,37 @@ def get_cluster_assignment(pairwise_distances, centroid_ids):
   Returns:
     y_fixed: 1-D tensor of cluster assignment.
   """
-  predictions = math_ops.argmin(
-      array_ops.gather(pairwise_distances, centroid_ids), dimension=0)
-  batch_size = array_ops.shape(pairwise_distances)[0]
+    predictions = math_ops.argmin(
+        array_ops.gather(pairwise_distances, centroid_ids), dimension=0
+    )
+    batch_size = array_ops.shape(pairwise_distances)[0]
 
-  # Deal with numerical instability
-  mask = math_ops.reduce_any(array_ops.one_hot(
-      centroid_ids, batch_size, True, False, axis=-1, dtype=dtypes.bool),
-                             axis=0)
-  constraint_one_hot = math_ops.multiply(
-      array_ops.one_hot(centroid_ids,
-                        batch_size,
-                        array_ops.constant(1, dtype=dtypes.int64),
-                        array_ops.constant(0, dtype=dtypes.int64),
-                        axis=0,
-                        dtype=dtypes.int64),
-      math_ops.to_int64(math_ops.range(array_ops.shape(centroid_ids)[0])))
-  constraint_vect = math_ops.reduce_sum(
-      array_ops.transpose(constraint_one_hot), axis=0)
+    # Deal with numerical instability
+    mask = math_ops.reduce_any(
+        array_ops.one_hot(
+            centroid_ids, batch_size, True, False, axis=-1, dtype=dtypes.bool
+        ),
+        axis=0,
+    )
+    constraint_one_hot = math_ops.multiply(
+        array_ops.one_hot(
+            centroid_ids,
+            batch_size,
+            array_ops.constant(1, dtype=dtypes.int64),
+            array_ops.constant(0, dtype=dtypes.int64),
+            axis=0,
+            dtype=dtypes.int64,
+        ),
+        math_ops.to_int64(math_ops.range(array_ops.shape(centroid_ids)[0])),
+    )
+    constraint_vect = math_ops.reduce_sum(array_ops.transpose(constraint_one_hot), axis=0)
 
-  y_fixed = array_ops.where(mask, constraint_vect, predictions)
-  return y_fixed
+    y_fixed = array_ops.where(mask, constraint_vect, predictions)
+    return y_fixed
 
 
 def compute_facility_energy(pairwise_distances, centroid_ids):
-  """Compute the average travel distance to the assigned centroid.
+    """Compute the average travel distance to the assigned centroid.
 
   Args:
     pairwise_distances: 2-D Tensor of pairwise distances.
@@ -566,13 +620,13 @@ def compute_facility_energy(pairwise_distances, centroid_ids):
   Returns:
     facility_energy: dtypes.float32 scalar.
   """
-  return -1.0 * math_ops.reduce_sum(
-      math_ops.reduce_min(
-          array_ops.gather(pairwise_distances, centroid_ids), axis=0))
+    return -1.0 * math_ops.reduce_sum(
+        math_ops.reduce_min(array_ops.gather(pairwise_distances, centroid_ids), axis=0)
+    )
 
 
 def compute_clustering_score(labels, predictions, margin_type):
-  """Computes the clustering score via sklearn.metrics functions.
+    """Computes the clustering score via sklearn.metrics functions.
 
   There are various ways to compute the clustering score. Intuitively,
   we want to measure the agreement of two clustering assignments (labels vs
@@ -597,68 +651,83 @@ def compute_clustering_score(labels, predictions, margin_type):
   Raises:
     ValueError: margin_type is not recognized.
   """
-  margin_type_to_func = {
-      'nmi': _compute_nmi_score,
-      'ami': _compute_ami_score,
-      'ari': _compute_ari_score,
-      'vmeasure': _compute_vmeasure_score,
-      'const': _compute_zeroone_score
-  }
+    margin_type_to_func = {
+        'nmi': _compute_nmi_score,
+        'ami': _compute_ami_score,
+        'ari': _compute_ari_score,
+        'vmeasure': _compute_vmeasure_score,
+        'const': _compute_zeroone_score,
+    }
 
-  if margin_type not in margin_type_to_func:
-    raise ValueError('Unrecognized margin_type: %s' % margin_type)
-  clustering_score_fn = margin_type_to_func[margin_type]
-  return array_ops.squeeze(clustering_score_fn(labels, predictions))
+    if margin_type not in margin_type_to_func:
+        raise ValueError('Unrecognized margin_type: %s' % margin_type)
+    clustering_score_fn = margin_type_to_func[margin_type]
+    return array_ops.squeeze(clustering_score_fn(labels, predictions))
 
 
 def _compute_nmi_score(labels, predictions):
-  return math_ops.to_float(
-      script_ops.py_func(
-          metrics.normalized_mutual_info_score, [labels, predictions],
-          [dtypes.float64],
-          name='nmi'))
+    return math_ops.to_float(
+        script_ops.py_func(
+            metrics.normalized_mutual_info_score,
+            [labels, predictions],
+            [dtypes.float64],
+            name='nmi',
+        )
+    )
 
 
 def _compute_ami_score(labels, predictions):
-  ami_score = math_ops.to_float(
-      script_ops.py_func(
-          metrics.adjusted_mutual_info_score, [labels, predictions],
-          [dtypes.float64],
-          name='ami'))
-  return math_ops.maximum(0.0, ami_score)
+    ami_score = math_ops.to_float(
+        script_ops.py_func(
+            metrics.adjusted_mutual_info_score,
+            [labels, predictions],
+            [dtypes.float64],
+            name='ami',
+        )
+    )
+    return math_ops.maximum(0.0, ami_score)
 
 
 def _compute_ari_score(labels, predictions):
-  ari_score = math_ops.to_float(
-      script_ops.py_func(
-          metrics.adjusted_rand_score, [labels, predictions], [dtypes.float64],
-          name='ari'))
-  # ari score can go below 0
-  # http://scikit-learn.org/stable/modules/clustering.html#adjusted-rand-score
-  return math_ops.maximum(0.0, ari_score)
+    ari_score = math_ops.to_float(
+        script_ops.py_func(
+            metrics.adjusted_rand_score,
+            [labels, predictions],
+            [dtypes.float64],
+            name='ari',
+        )
+    )
+    # ari score can go below 0
+    # http://scikit-learn.org/stable/modules/clustering.html#adjusted-rand-score
+    return math_ops.maximum(0.0, ari_score)
 
 
 def _compute_vmeasure_score(labels, predictions):
-  vmeasure_score = math_ops.to_float(
-      script_ops.py_func(
-          metrics.v_measure_score, [labels, predictions], [dtypes.float64],
-          name='vmeasure'))
-  return math_ops.maximum(0.0, vmeasure_score)
+    vmeasure_score = math_ops.to_float(
+        script_ops.py_func(
+            metrics.v_measure_score,
+            [labels, predictions],
+            [dtypes.float64],
+            name='vmeasure',
+        )
+    )
+    return math_ops.maximum(0.0, vmeasure_score)
 
 
 def _compute_zeroone_score(labels, predictions):
-  zeroone_score = math_ops.to_float(
-      math_ops.equal(
-          math_ops.reduce_sum(
-              math_ops.to_int32(math_ops.equal(labels, predictions))),
-          array_ops.shape(labels)[0]))
-  return zeroone_score
+    zeroone_score = math_ops.to_float(
+        math_ops.equal(
+            math_ops.reduce_sum(math_ops.to_int32(math_ops.equal(labels, predictions))),
+            array_ops.shape(labels)[0],
+        )
+    )
+    return zeroone_score
 
 
-def _find_loss_augmented_facility_idx(pairwise_distances, labels, chosen_ids,
-                                      candidate_ids, margin_multiplier,
-                                      margin_type):
-  """Find the next centroid that maximizes the loss augmented inference.
+def _find_loss_augmented_facility_idx(
+    pairwise_distances, labels, chosen_ids, candidate_ids, margin_multiplier, margin_type
+):
+    """Find the next centroid that maximizes the loss augmented inference.
 
   This function is a subroutine called from compute_augmented_facility_locations
 
@@ -673,59 +742,70 @@ def _find_loss_augmented_facility_idx(pairwise_distances, labels, chosen_ids,
   Returns:
     integer index.
   """
-  num_candidates = array_ops.shape(candidate_ids)[0]
+    num_candidates = array_ops.shape(candidate_ids)[0]
 
-  pairwise_distances_chosen = array_ops.gather(pairwise_distances, chosen_ids)
-  pairwise_distances_candidate = array_ops.gather(
-      pairwise_distances, candidate_ids)
-  pairwise_distances_chosen_tile = array_ops.tile(
-      pairwise_distances_chosen, [1, num_candidates])
+    pairwise_distances_chosen = array_ops.gather(pairwise_distances, chosen_ids)
+    pairwise_distances_candidate = array_ops.gather(pairwise_distances, candidate_ids)
+    pairwise_distances_chosen_tile = array_ops.tile(
+        pairwise_distances_chosen, [1, num_candidates]
+    )
 
-  candidate_scores = -1.0 * math_ops.reduce_sum(
-      array_ops.reshape(
-          math_ops.reduce_min(
-              array_ops.concat([
-                  pairwise_distances_chosen_tile,
-                  array_ops.reshape(pairwise_distances_candidate, [1, -1])
-              ], 0),
-              axis=0,
-              keepdims=True), [num_candidates, -1]),
-      axis=1)
+    candidate_scores = -1.0 * math_ops.reduce_sum(
+        array_ops.reshape(
+            math_ops.reduce_min(
+                array_ops.concat(
+                    [
+                        pairwise_distances_chosen_tile,
+                        array_ops.reshape(pairwise_distances_candidate, [1, -1]),
+                    ],
+                    0,
+                ),
+                axis=0,
+                keepdims=True,
+            ),
+            [num_candidates, -1],
+        ),
+        axis=1,
+    )
 
-  nmi_scores = array_ops.zeros([num_candidates])
-  iteration = array_ops.constant(0)
+    nmi_scores = array_ops.zeros([num_candidates])
+    iteration = array_ops.constant(0)
 
-  def func_cond(iteration, nmi_scores):
-    del nmi_scores  # Unused in func_cond()
-    return iteration < num_candidates
+    def func_cond(iteration, nmi_scores):
+        del nmi_scores  # Unused in func_cond()
+        return iteration < num_candidates
 
-  def func_body(iteration, nmi_scores):
-    predictions = get_cluster_assignment(
-        pairwise_distances,
-        array_ops.concat([chosen_ids, [candidate_ids[iteration]]], 0))
-    nmi_score_i = compute_clustering_score(labels, predictions, margin_type)
-    pad_before = array_ops.zeros([iteration])
-    pad_after = array_ops.zeros([num_candidates - 1 - iteration])
-    # return 1 - NMI score as the structured loss.
-    #   because NMI is higher the better [0,1].
-    return iteration + 1, nmi_scores + array_ops.concat(
-        [pad_before, [1.0 - nmi_score_i], pad_after], 0)
+    def func_body(iteration, nmi_scores):
+        predictions = get_cluster_assignment(
+            pairwise_distances,
+            array_ops.concat([chosen_ids, [candidate_ids[iteration]]], 0),
+        )
+        nmi_score_i = compute_clustering_score(labels, predictions, margin_type)
+        pad_before = array_ops.zeros([iteration])
+        pad_after = array_ops.zeros([num_candidates - 1 - iteration])
+        # return 1 - NMI score as the structured loss.
+        #   because NMI is higher the better [0,1].
+        return (
+            iteration + 1,
+            nmi_scores
+            + array_ops.concat([pad_before, [1.0 - nmi_score_i], pad_after], 0),
+        )
 
-  _, nmi_scores = control_flow_ops.while_loop(
-      func_cond, func_body, [iteration, nmi_scores])
+    _, nmi_scores = control_flow_ops.while_loop(
+        func_cond, func_body, [iteration, nmi_scores]
+    )
 
-  candidate_scores = math_ops.add(
-      candidate_scores, margin_multiplier * nmi_scores)
+    candidate_scores = math_ops.add(candidate_scores, margin_multiplier * nmi_scores)
 
-  argmax_index = math_ops.to_int32(
-      math_ops.argmax(candidate_scores, dimension=0))
+    argmax_index = math_ops.to_int32(math_ops.argmax(candidate_scores, dimension=0))
 
-  return candidate_ids[argmax_index]
+    return candidate_ids[argmax_index]
 
 
-def compute_augmented_facility_locations(pairwise_distances, labels, all_ids,
-                                         margin_multiplier, margin_type):
-  """Computes the centroid locations.
+def compute_augmented_facility_locations(
+    pairwise_distances, labels, all_ids, margin_multiplier, margin_type
+):
+    """Computes the centroid locations.
 
   Args:
     pairwise_distances: 2-D Tensor of pairwise distances.
@@ -738,40 +818,51 @@ def compute_augmented_facility_locations(pairwise_distances, labels, all_ids,
     chosen_ids: 1-D Tensor of chosen centroid indices.
   """
 
-  def func_cond_augmented(iteration, chosen_ids):
-    del chosen_ids  # Unused argument in func_cond_augmented.
-    return iteration < num_classes
+    def func_cond_augmented(iteration, chosen_ids):
+        del chosen_ids  # Unused argument in func_cond_augmented.
+        return iteration < num_classes
 
-  def func_body_augmented(iteration, chosen_ids):
-    # find a new facility location to add
-    #  based on the clustering score and the NMI score
-    candidate_ids = array_ops.setdiff1d(all_ids, chosen_ids)[0]
-    new_chosen_idx = _find_loss_augmented_facility_idx(pairwise_distances,
-                                                       labels, chosen_ids,
-                                                       candidate_ids,
-                                                       margin_multiplier,
-                                                       margin_type)
-    chosen_ids = array_ops.concat([chosen_ids, [new_chosen_idx]], 0)
-    return iteration + 1, chosen_ids
+    def func_body_augmented(iteration, chosen_ids):
+        # find a new facility location to add
+        #  based on the clustering score and the NMI score
+        candidate_ids = array_ops.setdiff1d(all_ids, chosen_ids)[0]
+        new_chosen_idx = _find_loss_augmented_facility_idx(
+            pairwise_distances,
+            labels,
+            chosen_ids,
+            candidate_ids,
+            margin_multiplier,
+            margin_type,
+        )
+        chosen_ids = array_ops.concat([chosen_ids, [new_chosen_idx]], 0)
+        return iteration + 1, chosen_ids
 
-  num_classes = array_ops.size(array_ops.unique(labels)[0])
-  chosen_ids = array_ops.constant(0, dtype=dtypes.int32, shape=[0])
+    num_classes = array_ops.size(array_ops.unique(labels)[0])
+    chosen_ids = array_ops.constant(0, dtype=dtypes.int32, shape=[0])
 
-  # num_classes get determined at run time based on the sampled batch.
-  iteration = array_ops.constant(0)
+    # num_classes get determined at run time based on the sampled batch.
+    iteration = array_ops.constant(0)
 
-  _, chosen_ids = control_flow_ops.while_loop(
-      func_cond_augmented,
-      func_body_augmented, [iteration, chosen_ids],
-      shape_invariants=[iteration.get_shape(), tensor_shape.TensorShape(
-          [None])])
-  return chosen_ids
+    _, chosen_ids = control_flow_ops.while_loop(
+        func_cond_augmented,
+        func_body_augmented,
+        [iteration, chosen_ids],
+        shape_invariants=[iteration.get_shape(), tensor_shape.TensorShape([None])],
+    )
+    return chosen_ids
 
 
-def update_medoid_per_cluster(pairwise_distances, pairwise_distances_subset,
-                              labels, chosen_ids, cluster_member_ids,
-                              cluster_idx, margin_multiplier, margin_type):
-  """Updates the cluster medoid per cluster.
+def update_medoid_per_cluster(
+    pairwise_distances,
+    pairwise_distances_subset,
+    labels,
+    chosen_ids,
+    cluster_member_ids,
+    cluster_idx,
+    margin_multiplier,
+    margin_type,
+):
+    """Updates the cluster medoid per cluster.
 
   Args:
     pairwise_distances: 2-D Tensor of pairwise distances.
@@ -787,47 +878,52 @@ def update_medoid_per_cluster(pairwise_distances, pairwise_distances_subset,
     chosen_ids: Updated 1-D Tensor of cluster centroid indices.
   """
 
-  def func_cond(iteration, scores_margin):
-    del scores_margin  # Unused variable scores_margin.
-    return iteration < num_candidates
+    def func_cond(iteration, scores_margin):
+        del scores_margin  # Unused variable scores_margin.
+        return iteration < num_candidates
 
-  def func_body(iteration, scores_margin):
-    # swap the current medoid with the candidate cluster member
-    candidate_medoid = math_ops.to_int32(cluster_member_ids[iteration])
-    tmp_chosen_ids = update_1d_tensor(chosen_ids, cluster_idx, candidate_medoid)
-    predictions = get_cluster_assignment(pairwise_distances, tmp_chosen_ids)
-    metric_score = compute_clustering_score(labels, predictions, margin_type)
-    pad_before = array_ops.zeros([iteration])
-    pad_after = array_ops.zeros([num_candidates - 1 - iteration])
-    return iteration + 1, scores_margin + array_ops.concat(
-        [pad_before, [1.0 - metric_score], pad_after], 0)
+    def func_body(iteration, scores_margin):
+        # swap the current medoid with the candidate cluster member
+        candidate_medoid = math_ops.to_int32(cluster_member_ids[iteration])
+        tmp_chosen_ids = update_1d_tensor(chosen_ids, cluster_idx, candidate_medoid)
+        predictions = get_cluster_assignment(pairwise_distances, tmp_chosen_ids)
+        metric_score = compute_clustering_score(labels, predictions, margin_type)
+        pad_before = array_ops.zeros([iteration])
+        pad_after = array_ops.zeros([num_candidates - 1 - iteration])
+        return (
+            iteration + 1,
+            scores_margin
+            + array_ops.concat([pad_before, [1.0 - metric_score], pad_after], 0),
+        )
 
-  # pairwise_distances_subset is of size [p, 1, 1, p],
-  #   the intermediate dummy dimensions at
-  #   [1, 2] makes this code work in the edge case where p=1.
-  #   this happens if the cluster size is one.
-  scores_fac = -1.0 * math_ops.reduce_sum(
-      array_ops.squeeze(pairwise_distances_subset, [1, 2]), axis=0)
+    # pairwise_distances_subset is of size [p, 1, 1, p],
+    #   the intermediate dummy dimensions at
+    #   [1, 2] makes this code work in the edge case where p=1.
+    #   this happens if the cluster size is one.
+    scores_fac = -1.0 * math_ops.reduce_sum(
+        array_ops.squeeze(pairwise_distances_subset, [1, 2]), axis=0
+    )
 
-  iteration = array_ops.constant(0)
-  num_candidates = array_ops.size(cluster_member_ids)
-  scores_margin = array_ops.zeros([num_candidates])
+    iteration = array_ops.constant(0)
+    num_candidates = array_ops.size(cluster_member_ids)
+    scores_margin = array_ops.zeros([num_candidates])
 
-  _, scores_margin = control_flow_ops.while_loop(func_cond, func_body,
-                                                 [iteration, scores_margin])
-  candidate_scores = math_ops.add(scores_fac, margin_multiplier * scores_margin)
+    _, scores_margin = control_flow_ops.while_loop(
+        func_cond, func_body, [iteration, scores_margin]
+    )
+    candidate_scores = math_ops.add(scores_fac, margin_multiplier * scores_margin)
 
-  argmax_index = math_ops.to_int32(
-      math_ops.argmax(candidate_scores, dimension=0))
+    argmax_index = math_ops.to_int32(math_ops.argmax(candidate_scores, dimension=0))
 
-  best_medoid = math_ops.to_int32(cluster_member_ids[argmax_index])
-  chosen_ids = update_1d_tensor(chosen_ids, cluster_idx, best_medoid)
-  return chosen_ids
+    best_medoid = math_ops.to_int32(cluster_member_ids[argmax_index])
+    chosen_ids = update_1d_tensor(chosen_ids, cluster_idx, best_medoid)
+    return chosen_ids
 
 
-def update_all_medoids(pairwise_distances, predictions, labels, chosen_ids,
-                       margin_multiplier, margin_type):
-  """Updates all cluster medoids a cluster at a time.
+def update_all_medoids(
+    pairwise_distances, predictions, labels, chosen_ids, margin_multiplier, margin_type
+):
+    """Updates all cluster medoids a cluster at a time.
 
   Args:
     pairwise_distances: 2-D Tensor of pairwise distances.
@@ -841,45 +937,52 @@ def update_all_medoids(pairwise_distances, predictions, labels, chosen_ids,
     chosen_ids: Updated 1-D Tensor of cluster centroid indices.
   """
 
-  def func_cond_augmented_pam(iteration, chosen_ids):
-    del chosen_ids  # Unused argument.
-    return iteration < num_classes
+    def func_cond_augmented_pam(iteration, chosen_ids):
+        del chosen_ids  # Unused argument.
+        return iteration < num_classes
 
-  def func_body_augmented_pam(iteration, chosen_ids):
-    """Call the update_medoid_per_cluster subroutine."""
-    mask = math_ops.equal(
-        math_ops.to_int64(predictions), math_ops.to_int64(iteration))
-    this_cluster_ids = array_ops.where(mask)
+    def func_body_augmented_pam(iteration, chosen_ids):
+        """Call the update_medoid_per_cluster subroutine."""
+        mask = math_ops.equal(
+            math_ops.to_int64(predictions), math_ops.to_int64(iteration)
+        )
+        this_cluster_ids = array_ops.where(mask)
 
-    pairwise_distances_subset = array_ops.transpose(
-        array_ops.gather(
-            array_ops.transpose(
-                array_ops.gather(pairwise_distances, this_cluster_ids)),
-            this_cluster_ids))
+        pairwise_distances_subset = array_ops.transpose(
+            array_ops.gather(
+                array_ops.transpose(
+                    array_ops.gather(pairwise_distances, this_cluster_ids)
+                ),
+                this_cluster_ids,
+            )
+        )
 
-    chosen_ids = update_medoid_per_cluster(pairwise_distances,
-                                           pairwise_distances_subset, labels,
-                                           chosen_ids, this_cluster_ids,
-                                           iteration, margin_multiplier,
-                                           margin_type)
-    return iteration + 1, chosen_ids
+        chosen_ids = update_medoid_per_cluster(
+            pairwise_distances,
+            pairwise_distances_subset,
+            labels,
+            chosen_ids,
+            this_cluster_ids,
+            iteration,
+            margin_multiplier,
+            margin_type,
+        )
+        return iteration + 1, chosen_ids
 
-  unique_class_ids = array_ops.unique(labels)[0]
-  num_classes = array_ops.size(unique_class_ids)
-  iteration = array_ops.constant(0)
+    unique_class_ids = array_ops.unique(labels)[0]
+    num_classes = array_ops.size(unique_class_ids)
+    iteration = array_ops.constant(0)
 
-  _, chosen_ids = control_flow_ops.while_loop(
-      func_cond_augmented_pam, func_body_augmented_pam, [iteration, chosen_ids])
-  return chosen_ids
+    _, chosen_ids = control_flow_ops.while_loop(
+        func_cond_augmented_pam, func_body_augmented_pam, [iteration, chosen_ids]
+    )
+    return chosen_ids
 
 
-def compute_augmented_facility_locations_pam(pairwise_distances,
-                                             labels,
-                                             margin_multiplier,
-                                             margin_type,
-                                             chosen_ids,
-                                             pam_max_iter=5):
-  """Refine the cluster centroids with PAM local search.
+def compute_augmented_facility_locations_pam(
+    pairwise_distances, labels, margin_multiplier, margin_type, chosen_ids, pam_max_iter=5
+):
+    """Refine the cluster centroids with PAM local search.
 
   For fixed iterations, alternate between updating the cluster assignment
     and updating cluster medoids.
@@ -895,19 +998,25 @@ def compute_augmented_facility_locations_pam(pairwise_distances,
   Returns:
     chosen_ids: Updated 1-D Tensor of cluster centroid indices.
   """
-  for _ in range(pam_max_iter):
-    # update the cluster assignment given the chosen_ids (S_pred)
-    predictions = get_cluster_assignment(pairwise_distances, chosen_ids)
+    for _ in range(pam_max_iter):
+        # update the cluster assignment given the chosen_ids (S_pred)
+        predictions = get_cluster_assignment(pairwise_distances, chosen_ids)
 
-    # update the medoids per each cluster
-    chosen_ids = update_all_medoids(pairwise_distances, predictions, labels,
-                                    chosen_ids, margin_multiplier, margin_type)
+        # update the medoids per each cluster
+        chosen_ids = update_all_medoids(
+            pairwise_distances,
+            predictions,
+            labels,
+            chosen_ids,
+            margin_multiplier,
+            margin_type,
+        )
 
-  return chosen_ids
+    return chosen_ids
 
 
 def compute_gt_cluster_score(pairwise_distances, labels):
-  """Compute ground truth facility location score.
+    """Compute ground truth facility location score.
 
   Loop over each unique classes and compute average travel distances.
 
@@ -918,41 +1027,47 @@ def compute_gt_cluster_score(pairwise_distances, labels):
   Returns:
     gt_cluster_score: dtypes.float32 score.
   """
-  unique_class_ids = array_ops.unique(labels)[0]
-  num_classes = array_ops.size(unique_class_ids)
-  iteration = array_ops.constant(0)
-  gt_cluster_score = array_ops.constant(0.0, dtype=dtypes.float32)
+    unique_class_ids = array_ops.unique(labels)[0]
+    num_classes = array_ops.size(unique_class_ids)
+    iteration = array_ops.constant(0)
+    gt_cluster_score = array_ops.constant(0.0, dtype=dtypes.float32)
 
-  def func_cond(iteration, gt_cluster_score):
-    del gt_cluster_score  # Unused argument.
-    return iteration < num_classes
+    def func_cond(iteration, gt_cluster_score):
+        del gt_cluster_score  # Unused argument.
+        return iteration < num_classes
 
-  def func_body(iteration, gt_cluster_score):
-    """Per each cluster, compute the average travel distance."""
-    mask = math_ops.equal(labels, unique_class_ids[iteration])
-    this_cluster_ids = array_ops.where(mask)
-    pairwise_distances_subset = array_ops.transpose(
-        array_ops.gather(
-            array_ops.transpose(
-                array_ops.gather(pairwise_distances, this_cluster_ids)),
-            this_cluster_ids))
-    this_cluster_score = -1.0 * math_ops.reduce_min(
-        math_ops.reduce_sum(
-            pairwise_distances_subset, axis=0))
-    return iteration + 1, gt_cluster_score + this_cluster_score
+    def func_body(iteration, gt_cluster_score):
+        """Per each cluster, compute the average travel distance."""
+        mask = math_ops.equal(labels, unique_class_ids[iteration])
+        this_cluster_ids = array_ops.where(mask)
+        pairwise_distances_subset = array_ops.transpose(
+            array_ops.gather(
+                array_ops.transpose(
+                    array_ops.gather(pairwise_distances, this_cluster_ids)
+                ),
+                this_cluster_ids,
+            )
+        )
+        this_cluster_score = -1.0 * math_ops.reduce_min(
+            math_ops.reduce_sum(pairwise_distances_subset, axis=0)
+        )
+        return iteration + 1, gt_cluster_score + this_cluster_score
 
-  _, gt_cluster_score = control_flow_ops.while_loop(
-      func_cond, func_body, [iteration, gt_cluster_score])
-  return gt_cluster_score
+    _, gt_cluster_score = control_flow_ops.while_loop(
+        func_cond, func_body, [iteration, gt_cluster_score]
+    )
+    return gt_cluster_score
 
 
-def cluster_loss(labels,
-                 embeddings,
-                 margin_multiplier,
-                 enable_pam_finetuning=True,
-                 margin_type='nmi',
-                 print_losses=False):
-  """Computes the clustering loss.
+def cluster_loss(
+    labels,
+    embeddings,
+    margin_multiplier,
+    enable_pam_finetuning=True,
+    margin_type='nmi',
+    print_losses=False,
+):
+    """Computes the clustering loss.
 
   The following structured margins are supported:
     nmi: normalized mutual information
@@ -980,55 +1095,53 @@ def cluster_loss(labels,
   Raises:
     ImportError: If sklearn dependency is not installed.
   """
-  if not HAS_SKLEARN:
-    raise ImportError('Cluster loss depends on sklearn.')
-  pairwise_distances = pairwise_distance(embeddings)
-  labels = array_ops.squeeze(labels)
-  all_ids = math_ops.range(array_ops.shape(embeddings)[0])
+    if not HAS_SKLEARN:
+        raise ImportError('Cluster loss depends on sklearn.')
+    pairwise_distances = pairwise_distance(embeddings)
+    labels = array_ops.squeeze(labels)
+    all_ids = math_ops.range(array_ops.shape(embeddings)[0])
 
-  # Compute the loss augmented inference and get the cluster centroids.
-  chosen_ids = compute_augmented_facility_locations(pairwise_distances, labels,
-                                                    all_ids, margin_multiplier,
-                                                    margin_type)
-  # Given the predicted centroids, compute the clustering score.
-  score_pred = compute_facility_energy(pairwise_distances, chosen_ids)
-
-  # Branch whether to use PAM finetuning.
-  if enable_pam_finetuning:
-    # Initialize with augmented facility solution.
-    chosen_ids = compute_augmented_facility_locations_pam(pairwise_distances,
-                                                          labels,
-                                                          margin_multiplier,
-                                                          margin_type,
-                                                          chosen_ids)
+    # Compute the loss augmented inference and get the cluster centroids.
+    chosen_ids = compute_augmented_facility_locations(
+        pairwise_distances, labels, all_ids, margin_multiplier, margin_type
+    )
+    # Given the predicted centroids, compute the clustering score.
     score_pred = compute_facility_energy(pairwise_distances, chosen_ids)
 
-  # Given the predicted centroids, compute the cluster assignments.
-  predictions = get_cluster_assignment(pairwise_distances, chosen_ids)
+    # Branch whether to use PAM finetuning.
+    if enable_pam_finetuning:
+        # Initialize with augmented facility solution.
+        chosen_ids = compute_augmented_facility_locations_pam(
+            pairwise_distances, labels, margin_multiplier, margin_type, chosen_ids
+        )
+        score_pred = compute_facility_energy(pairwise_distances, chosen_ids)
 
-  # Compute the clustering (i.e. NMI) score between the two assignments.
-  clustering_score_pred = compute_clustering_score(labels, predictions,
-                                                   margin_type)
+    # Given the predicted centroids, compute the cluster assignments.
+    predictions = get_cluster_assignment(pairwise_distances, chosen_ids)
 
-  # Compute the clustering score from labels.
-  score_gt = compute_gt_cluster_score(pairwise_distances, labels)
+    # Compute the clustering (i.e. NMI) score between the two assignments.
+    clustering_score_pred = compute_clustering_score(labels, predictions, margin_type)
 
-  # Compute the hinge loss.
-  clustering_loss = math_ops.maximum(
-      score_pred + margin_multiplier * (1.0 - clustering_score_pred) - score_gt,
-      0.0,
-      name='clustering_loss')
-  clustering_loss.set_shape([])
+    # Compute the clustering score from labels.
+    score_gt = compute_gt_cluster_score(pairwise_distances, labels)
 
-  if print_losses:
-    clustering_loss = logging_ops.Print(
-        clustering_loss,
-        ['clustering_loss: ', clustering_loss, array_ops.shape(
-            clustering_loss)])
+    # Compute the hinge loss.
+    clustering_loss = math_ops.maximum(
+        score_pred + margin_multiplier * (1.0 - clustering_score_pred) - score_gt,
+        0.0,
+        name='clustering_loss',
+    )
+    clustering_loss.set_shape([])
 
-  # Clustering specific summary.
-  summary.scalar('losses/score_pred', score_pred)
-  summary.scalar('losses/' + margin_type, clustering_score_pred)
-  summary.scalar('losses/score_gt', score_gt)
+    if print_losses:
+        clustering_loss = logging_ops.Print(
+            clustering_loss,
+            ['clustering_loss: ', clustering_loss, array_ops.shape(clustering_loss)],
+        )
 
-  return clustering_loss
+    # Clustering specific summary.
+    summary.scalar('losses/score_pred', score_pred)
+    summary.scalar('losses/' + margin_type, clustering_score_pred)
+    summary.scalar('losses/score_gt', score_gt)
+
+    return clustering_loss

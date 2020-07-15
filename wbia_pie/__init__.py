@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from wbia_pie import _plugin  # NOQA
 from wbia_pie import __main__  # NOQA
 

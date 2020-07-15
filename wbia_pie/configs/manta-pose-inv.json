@@ -17,11 +17,11 @@
         "two_outputs":           false,
         "perspective":           true
     },
-    
+
     "data": {
         "train_image_folder":   "data/3_manta_unified",
-        "split_seed":            777  
-        
+        "split_seed":            777
+
     },
 
     "train": {
@@ -40,34 +40,34 @@
         "equal_k":             true,
         "verbose":             1
     },
-    
+
     "evaluate": {
         "accuracy_at_k":        [1,2,3,4,5,6,7,8,9,10],
         "move_to_dataset":      2,
         "test_set":             "",
         "n_eval_epochs":        20,
         "far_target":           0.01
-        
+
     },
-    
+
     "general": {
-        "stdout-file":         true    
-        
+        "stdout-file":         true
+
     },
-       
-    
+
+
     "predict": {
         "db-emb":              ["examples/manta-demo/predict-emb"]
-        
+
     },
-    
+
     "prod": {
         "prefix":              "manta-db",
         "output":              "examples/manta-demo",
         "lfile":               "",
         "embeddings":          "examples/manta-demo/db_embs",
         "temp":                "examples/manta-demo"
-        
+
     }
-    
+
 }

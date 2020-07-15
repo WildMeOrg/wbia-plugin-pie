@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import cv2
 import numpy as np
@@ -8,10 +9,11 @@ from glob import glob
 from sklearn.model_selection import train_test_split
 
 import sys
+
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
 
-def convert_to_fmt(src, imformat = 'png', logstep = 1000):
+def convert_to_fmt(src, imformat='png', logstep=1000):
     """Convert image/images to specified format. Changes are made in place.
     Note: OpenCV is used instead of PIL as it handles better different formats including .tiff
     Input:
@@ -21,40 +23,49 @@ def convert_to_fmt(src, imformat = 'png', logstep = 1000):
     """
     print('Converting source', src)
     if os.path.isdir(src):
-        imfiles = [os.path.join(src, f) for f in os.listdir(src) if os.path.isfile(os.path.join(src, f))]
-        print('Found {} files in source {}. Subdirectories are ignored'.format(len(imfiles), src))
+        imfiles = [
+            os.path.join(src, f)
+            for f in os.listdir(src)
+            if os.path.isfile(os.path.join(src, f))
+        ]
+        print(
+            'Found {} files in source {}. Subdirectories are ignored'.format(
+                len(imfiles), src
+            )
+        )
     else:
         imfiles = [src]
 
-    #Remove leading dot if it is in the format
+    # Remove leading dot if it is in the format
     imformat.replace('.', '')
 
-    #imfiles - list of full path to images
+    # imfiles - list of full path to images
     new_files = []
     for i, file in enumerate(imfiles):
         try:
             file_noext, ext = os.path.splitext(file)
-            #ext has leading dot
-            #If format is the same, do not do anything
+            # ext has leading dot
+            # If format is the same, do not do anything
             if ext[1:] != imformat:
                 img = cv2.imread(file, 1)
                 new_filename = file_noext + '.' + imformat
                 cv2.imwrite(new_filename, img)
                 new_files.append(new_filename)
-                #Remove original file
+                # Remove original file
                 os.remove(file)
             else:
                 new_files.append(file)
         except Exception as e:
             print(file, e)
 
-        if i%logstep==0 and i>0:
+        if i % logstep == 0 and i > 0:
             print('Converted {} images'.format(i))
     print('Converted {} images.'.format(len(imfiles)))
     if os.path.isdir(src):
         return new_files
     else:
         return new_files[0]
+
 
 def pad_im_to_square(impath, trg_dir):
     """Pad image to square with a black border
@@ -68,29 +79,30 @@ def pad_im_to_square(impath, trg_dir):
         if img.shape[0] != img.shape[1]:
             print('Padding image {} to square'.format(impath))
             size = max(img.shape[0], img.shape[1])
-            #print('Larger side is {}'.format(size))
-            if len(img.shape)>2:
+            # print('Larger side is {}'.format(size))
+            if len(img.shape) > 2:
                 target_img = np.zeros((size, size, img.shape[2]), dtype=np.uint8)
             else:
                 target_img = np.zeros((size, size), dtype=np.uint8)
 
             if img.shape[0] > img.shape[1]:
-                margin = round((img.shape[0] - img.shape[1]) / 2 )
-                if len(img.shape)>2:
-                    target_img[:, margin:margin+img.shape[1],:] = img
+                margin = round((img.shape[0] - img.shape[1]) / 2)
+                if len(img.shape) > 2:
+                    target_img[:, margin : margin + img.shape[1], :] = img
                 else:
-                    target_img[:, margin:margin+img.shape[1]] = img
+                    target_img[:, margin : margin + img.shape[1]] = img
             else:
-                margin = round((img.shape[1] - img.shape[0]) / 2 )
-                if len(img.shape)>2:
-                    target_img[margin:margin+img.shape[0],:,:] = img
+                margin = round((img.shape[1] - img.shape[0]) / 2)
+                if len(img.shape) > 2:
+                    target_img[margin : margin + img.shape[0], :, :] = img
                 else:
-                    target_img[margin:margin+img.shape[0],:] = img
+                    target_img[margin : margin + img.shape[0], :] = img
 
-            #plt.imshow(target_img)
+            # plt.imshow(target_img)
             new_filename = os.path.join(trg_dir, os.path.basename(impath))
             new_path, new_file = os.path.split(new_filename)
-            if not os.path.exists(new_path): os.makedirs(new_path)
+            if not os.path.exists(new_path):
+                os.makedirs(new_path)
             imsave(new_filename, target_img)
             return new_filename
         else:
@@ -98,7 +110,8 @@ def pad_im_to_square(impath, trg_dir):
     except Exception as e:
         print(e)
 
-def crop_im_by_mask(impath, maskpath, cropped_dir, padding = 0, square=True):
+
+def crop_im_by_mask(impath, maskpath, cropped_dir, padding=0, square=True):
     """Crop an image by masks. Cropped image is a square size if possible.
     Input:
     impath: string, path to image
@@ -109,41 +122,44 @@ def crop_im_by_mask(impath, maskpath, cropped_dir, padding = 0, square=True):
     """
     mask = imread(maskpath)
     image = imread(impath)
-    (x,y,w,h) = get_bound_box(maskpath)
+    (x, y, w, h) = get_bound_box(maskpath)
 
-    #Find 'new' coordinates.
+    # Find 'new' coordinates.
     if square:
-        #Find longer side
+        # Find longer side
         side = max(w, h)
         diff = abs(w - h)
         w_n = side
         h_n = side
 
-        if (w >= h):
-            y_n = max(0, y - round(diff/2))
+        if w >= h:
+            y_n = max(0, y - round(diff / 2))
             x_n = x
 
-        if (w < h):
-            x_n = max(0, x - round(diff/2))
+        if w < h:
+            x_n = max(0, x - round(diff / 2))
             y_n = y
     else:
-        (x_n, y_n, w_n, h_n) = (x,y,w,h)
+        (x_n, y_n, w_n, h_n) = (x, y, w, h)
 
-    #Add padding around bounding box:
-    (x_p, y_p, w_p, h_p) = (x_n-round(h_n*padding),
-                            y_n-round(w_n*padding),
-                            round(w_n+w_n*2*padding), round(h_n+h_n*2*padding))
+    # Add padding around bounding box:
+    (x_p, y_p, w_p, h_p) = (
+        x_n - round(h_n * padding),
+        y_n - round(w_n * padding),
+        round(w_n + w_n * 2 * padding),
+        round(h_n + h_n * 2 * padding),
+    )
     x_min = max(0, x_p)
     y_min = max(0, y_p)
-    x_max = min(x_p+w_p, mask.shape[1])
-    y_max = min(y_p+h_p, mask.shape[0])
+    x_max = min(x_p + w_p, mask.shape[1])
+    y_max = min(y_p + h_p, mask.shape[0])
 
     cropped = image[y_min:y_max, x_min:x_max]
 
-    #copy and crop manta image
+    # copy and crop manta image
     imdir, imfile = os.path.split(impath)
     croppedpath = os.path.join(cropped_dir, imfile)
-    imsave(croppedpath, cropped[...,:3])
+    imsave(croppedpath, cropped[..., :3])
     print('Cropped by mask and saved as {}'.format(croppedpath))
 
     return croppedpath
@@ -159,19 +175,28 @@ def resize_imgs(src, dest, size, del_src=False):
     del_src: bool, delete or not source image. Default: False
     """
     if os.path.isdir(src):
-        imfiles = [os.path.join(src, f) for f in os.listdir(src) if os.path.isfile(os.path.join(src, f))]
-        print('Found {} files in source {}. Subdirectories are ignored'.format(len(imfiles), src))
+        imfiles = [
+            os.path.join(src, f)
+            for f in os.listdir(src)
+            if os.path.isfile(os.path.join(src, f))
+        ]
+        print(
+            'Found {} files in source {}. Subdirectories are ignored'.format(
+                len(imfiles), src
+            )
+        )
     else:
         imfiles = [src]
 
-    if not os.path.exists(dest): os.mkdir(dest)
+    if not os.path.exists(dest):
+        os.mkdir(dest)
 
     resized_files = []
     for i, file in enumerate(imfiles):
         try:
-            #Read image and resize
+            # Read image and resize
             img = imread(file)
-            res = cv2.resize(img, size, interpolation = cv2.INTER_LINEAR)
+            res = cv2.resize(img, size, interpolation=cv2.INTER_LINEAR)
 
             resized_file = os.path.join(dest, os.path.basename(file))
             imsave(resized_file, res)
@@ -181,7 +206,7 @@ def resize_imgs(src, dest, size, del_src=False):
         except Exception as e:
             print('Exception in preprocessing.py')
             print(file, e)
-    #Return a list of new resized files or 1 file
+    # Return a list of new resized files or 1 file
     if os.path.isdir(src):
         return resized_files
     else:
@@ -199,23 +224,23 @@ def get_bound_box(filename):
     """
     img = imread(filename)
 
-    #Threshold mask
-    ret,thresholded = cv2.threshold(img,127,255,cv2.THRESH_BINARY)
-    #Lots of changes in return variables in function findContours
-    #https://stackoverflow.com/questions/48291581/how-to-use-cv2-findcontours-in-different-opencv-versions/48292371#48292371
-    contours = cv2.findContours(thresholded, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)[-2]
+    # Threshold mask
+    ret, thresholded = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+    # Lots of changes in return variables in function findContours
+    # https://stackoverflow.com/questions/48291581/how-to-use-cv2-findcontours-in-different-opencv-versions/48292371#48292371
+    contours = cv2.findContours(thresholded, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[-2]
     # Choose largest contour
     best = 0
     maxsize = 0
     count = 0
     for cnt in contours:
-        if cv2.contourArea(cnt) > maxsize :
+        if cv2.contourArea(cnt) > maxsize:
             maxsize = cv2.contourArea(cnt)
             best = count
 
         count = count + 1
-    x,y,w,h = cv2.boundingRect(contours[best])
-    return (x,y,w,h)
+    x, y, w, h = cv2.boundingRect(contours[best])
+    return (x, y, w, h)
 
 
 def crop_im_by_box(filename, bbox, verbose=False):
@@ -230,17 +255,21 @@ def crop_im_by_box(filename, bbox, verbose=False):
     """
     try:
         image = imread(filename)
-        #print('image shape: {}'.format(image.shape))
-        (x,y,w,h) = bbox
-        #print('bbox: {}'.format(bbox))
-        cropped = image[y:y+h, x:x+w]
+        # print('image shape: {}'.format(image.shape))
+        (x, y, w, h) = bbox
+        # print('bbox: {}'.format(bbox))
+        cropped = image[y : y + h, x : x + w]
         imsave(filename, cropped)
-        if verbose: print(filename + ' cropped')
+        if verbose:
+            print(filename + ' cropped')
     except Exception as e:
         print(e)
         print('Not found {}'.format(filename))
 
-def read_dataset(img_dir, data_type='uint8', return_filenames=False, original_labels=False):
+
+def read_dataset(
+    img_dir, data_type='uint8', return_filenames=False, original_labels=False
+):
     """Read a dataset from a directory where each class is in a subdirectory:
     img_dir: string, path to image directory
     data_type: string, data type of images, expects float32 or uint8
@@ -275,10 +304,10 @@ def read_dataset(img_dir, data_type='uint8', return_filenames=False, original_la
 
         if i == 0:
             imsize = img.shape
-            X = np.zeros((n, imsize[0], imsize[1], imsize[2]), dtype = data_type)
-            #y = np.zeros(n, dtype = 'uint32')
+            X = np.zeros((n, imsize[0], imsize[1], imsize[2]), dtype=data_type)
+            # y = np.zeros(n, dtype = 'uint32')
 
-        #get class name from subfolder
+        # get class name from subfolder
         (head, tail) = os.path.split(file)
         (subhead, subtail) = os.path.split(head)
         subfolder = subtail
@@ -293,22 +322,25 @@ def read_dataset(img_dir, data_type='uint8', return_filenames=False, original_la
             y.append(class_dict[subfolder])
 
         if i % 1000 == 0 and i > 0:
-            print("%d images read" % (i))
+            print('%d images read' % (i))
 
     y = np.array(y)
     print('Read %d files from %d classes' % (n, label_count))
     print('X shape: ' + str(X.shape))
     print('Labels shape: ' + str(y.shape))
 
-    #Add reversed keys to dictionary
-    class_dict.update({v:k for k,v in class_dict.items()})
+    # Add reversed keys to dictionary
+    class_dict.update({v: k for k, v in class_dict.items()})
 
     if return_filenames:
         return X, y, class_dict, filenames
     else:
         return X, y, class_dict
 
-def split_classes(dataset, labels, test_size=0.15, seed=None, return_mask=False, split_num=-1):
+
+def split_classes(
+    dataset, labels, test_size=0.15, seed=None, return_mask=False, split_num=-1
+):
     '''Split dataset and labels into train and validation without class overlap
 
     Input:
@@ -329,7 +361,9 @@ def split_classes(dataset, labels, test_size=0.15, seed=None, return_mask=False,
         seed = 0
 
     if split_num == -1:
-        lbls_train, lbls_valid = train_test_split(unique_lbls, test_size=test_size, random_state=seed)
+        lbls_train, lbls_valid = train_test_split(
+            unique_lbls, test_size=test_size, random_state=seed
+        )
 
     else:
         print('K-Fold split. Loading data for the split: {}'.format(split_num))
@@ -354,8 +388,11 @@ def split_classes(dataset, labels, test_size=0.15, seed=None, return_mask=False,
     labels_t = labels[mask_train]
     labels_v = labels[~mask_train]
 
-    print('Shape of train set : {}, shape of valid set: {},\ntrain labels: {}, valid labels: {}'.format(
-    dataset_t.shape, dataset_v.shape, labels_t.shape, labels_v.shape))
+    print(
+        'Shape of train set : {}, shape of valid set: {},\ntrain labels: {}, valid labels: {}'.format(
+            dataset_t.shape, dataset_v.shape, labels_t.shape, labels_v.shape
+        )
+    )
 
     if return_mask:
         return dataset_t, labels_t, dataset_v, labels_v, mask_train
@@ -366,11 +403,18 @@ def split_classes(dataset, labels, test_size=0.15, seed=None, return_mask=False,
 def split_classification(imgs, labels, min_imgs, return_mask=False):
     """Split set to test and validation so that every class in validation equal number of images"""
     u_labels = np.unique(labels)
-    #Move some images to validation set
-    indexes_tovalid = np.array([np.random.choice(np.where(labels == lab)[0], size=min_imgs, replace=False) for lab in u_labels])
-    mask_tovalid = np.array([True if i in indexes_tovalid else False for i in range(labels.shape[0])])
+    # Move some images to validation set
+    indexes_tovalid = np.array(
+        [
+            np.random.choice(np.where(labels == lab)[0], size=min_imgs, replace=False)
+            for lab in u_labels
+        ]
+    )
+    mask_tovalid = np.array(
+        [True if i in indexes_tovalid else False for i in range(labels.shape[0])]
+    )
 
-    #Split sets as per mask
+    # Split sets as per mask
     train_imgs = imgs[~mask_tovalid]
     train_labels = labels[~mask_tovalid]
     valid_imgs = imgs[mask_tovalid]
@@ -384,15 +428,19 @@ def split_classification(imgs, labels, min_imgs, return_mask=False):
 
 
 def expand_aug(dataset, labels, n_aug, gen, return_labels=False):
-    dataset_exp = np.zeros(shape=(dataset.shape[0]*n_aug,)+dataset.shape[1:], dtype=np.float32)
-    labels_exp = np.empty(shape=(labels.shape[0]*n_aug,), dtype=labels.dtype)
+    dataset_exp = np.zeros(
+        shape=(dataset.shape[0] * n_aug,) + dataset.shape[1:], dtype=np.float32
+    )
+    labels_exp = np.empty(shape=(labels.shape[0] * n_aug,), dtype=labels.dtype)
     print('Shape of expanded set {}'.format(dataset_exp.shape))
     for i in range(dataset.shape[0]):
-        start_idx = i*n_aug
-        end_idx = (i+1)*n_aug
-        dataset_exp[start_idx:end_idx]=np.array([gen.random_transform(dataset[i]) for j in range(n_aug)])
-        labels_exp[start_idx:end_idx]=np.array([labels[i] for j in range(n_aug)])
-        if (i%1000 == 0) and i!=0:
+        start_idx = i * n_aug
+        end_idx = (i + 1) * n_aug
+        dataset_exp[start_idx:end_idx] = np.array(
+            [gen.random_transform(dataset[i]) for j in range(n_aug)]
+        )
+        labels_exp[start_idx:end_idx] = np.array([labels[i] for j in range(n_aug)])
+        if (i % 1000 == 0) and i != 0:
             print('Processed %d images' % i)
 
     if return_labels:
@@ -427,6 +475,6 @@ def analyse_dataset(imgs, lbls, name=None):
     imgs_dict['max_samples'] = max_samples
     imgs_dict['average_samples'] = round(avr_samples, 0)
     imgs_dict['std_dev'] = round(std_dev, 2)
-    for k,v in imgs_dict.items():
-        print('{}: {}'.format(k,v))
+    for k, v in imgs_dict.items():
+        print('{}: {}'.format(k, v))
     return imgs_dict

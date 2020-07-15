@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ===============================================================================
 Script to compute embeddings for images with CNN to use later for re-identification.
@@ -40,16 +41,29 @@ from .utils.utils import export_emb
 from .utils.preprocessing import read_dataset
 
 argparser = argparse.ArgumentParser(
-    description='Compute embeddings for the database. No arguments are required if default values are used.')
+    description='Compute embeddings for the database. No arguments are required if default values are used.'
+)
 
-argparser.add_argument('-d', '--dbpath', required=True, help='Path to folder with localized database images')
-argparser.add_argument('-c', '--conf',   help='Path to configuration file', default='configs/config-manta.json')
-argparser.add_argument('-o', '--output', help='Path to output csv files. Default is in config: prod.embeddings')
-argparser.add_argument('-p', '--prefix', help='String to add to embeddings file. Default is in config: prod.prefix')
+argparser.add_argument(
+    '-d', '--dbpath', required=True, help='Path to folder with localized database images'
+)
+argparser.add_argument(
+    '-c', '--conf', help='Path to configuration file', default='configs/config-manta.json'
+)
+argparser.add_argument(
+    '-o',
+    '--output',
+    help='Path to output csv files. Default is in config: prod.embeddings',
+)
+argparser.add_argument(
+    '-p',
+    '--prefix',
+    help='String to add to embeddings file. Default is in config: prod.prefix',
+)
 
 
 def hello():
-    print("yo yo yo!")
+    print('yo yo yo!')
 
 
 # This is a package-ified version of original _main_ func
@@ -73,7 +87,9 @@ def compute(dbpath, config_path, output_dir, prefix, export=False):
     # Read localized images from a folder with localized database images
     if os.path.exists(dbpath):
         print('Loading images from from {}'.format(dbpath))
-        db_imgs, db_labels, lbl2names, db_files = read_dataset(dbpath, return_filenames=True, original_labels=False)
+        db_imgs, db_labels, lbl2names, db_files = read_dataset(
+            dbpath, return_filenames=True, original_labels=False
+        )
         db_names = np.array([lbl2names[lab] for lab in db_labels])
     else:
         print('Error! Path does not exist: {}'.format(dbpath))
@@ -96,7 +112,7 @@ def compute(dbpath, config_path, output_dir, prefix, export=False):
         embedding_size=config['model']['embedding_size'],
         connect_layer=config['model']['connect_layer'],
         train_from_layer=config['model']['train_from_layer'],
-        loss_func=config['model']['loss']
+        loss_func=config['model']['loss'],
     )
     print('model_args  = %s' % model_args)
 
@@ -106,14 +122,16 @@ def compute(dbpath, config_path, output_dir, prefix, export=False):
         raise Exception('Only TripletLoss model type is supported')
 
     # Define folder for experiment
-    exp_folder = os.path.join(plugin_folder, config['train']['exp_dir'], config['train']['exp_id'])
+    exp_folder = os.path.join(
+        plugin_folder, config['train']['exp_dir'], config['train']['exp_id']
+    )
     saved_weights = os.path.join(exp_folder, 'best_weights.h5')
 
     if os.path.exists(saved_weights):
-        print("Loading saved weights in ", saved_weights)
+        print('Loading saved weights in ', saved_weights)
         mymodel.load_weights(saved_weights)
     else:
-        print("ERROR! No pre-trained weights are found in {} ", saved_weights)
+        print('ERROR! No pre-trained weights are found in {} ', saved_weights)
         quit()
 
     # Compute embeddings
@@ -123,9 +141,14 @@ def compute(dbpath, config_path, output_dir, prefix, export=False):
 
     if export:
         # Export embeddings
-        print("Done computing embeddings, exporting to %s" % output_dir)
-        export_emb(db_preds, info=[db_labels, db_files, db_names],
-                   folder=output_dir, prefix=prefix, info_header=['class,file,name'])
+        print('Done computing embeddings, exporting to %s' % output_dir)
+        export_emb(
+            db_preds,
+            info=[db_labels, db_files, db_names],
+            folder=output_dir,
+            prefix=prefix,
+            info_header=['class,file,name'],
+        )
     return db_preds, db_files
 
 
