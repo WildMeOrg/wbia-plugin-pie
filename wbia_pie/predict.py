@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''
+"""
 ===============================================================================
 Interactive Tool to Re-Identify an Animal by natural markings
 
@@ -26,13 +26,16 @@ FUNCTIONALITY:
     4) Matching individuals are returned.
 
 ===============================================================================
-'''
-import os, argparse, json
+"""
+import os
+import argparse
+import json
 import numpy as np
 from imageio import imread
 import matplotlib.pyplot as plt
 from glob import glob
-import utool as ut
+
+# import utool as ut
 
 from .utils.drawer import MaskDrawer
 from .model.triplet import TripletLoss
@@ -63,6 +66,7 @@ argparser.add_argument(
     '--gtruth',
     help='Ground truth labels for testing. Csv: filename, label (w/headers)',
 )
+
 
 # can pass config dict or a path to a config json file. The dict takes precendence if it is provided
 def predict(
@@ -237,11 +241,10 @@ def predict(
     db_info = np.concatenate(db_info, axis=0)
     # print(db_embs.shape, db_lbls.shape, db_info.shape)
 
+    # import utool as ut
+    # ut.embed()
+
     # Fit nearest neighbours classifier
-    import utool as ut
-
-    ut.embed()
-
     neigh_lbl_un, neigh_ind_un, neigh_dist_un = predict_k_neigh(
         db_embs, db_lbls, embedding, k=10
     )
@@ -263,7 +266,7 @@ def predict(
         return ans_dict
 
     # Show some images
-    n_preds = len(neigh_lbl_un)
+    # n_preds = len(neigh_lbl_un)
 
     fig, ax = plt.subplots(ncols=6, nrows=2, figsize=(20, 10))
 
@@ -360,6 +363,4 @@ if __name__ == '__main__':
     display = args.display
     output_dir = args.output
     gtruth = args.gtruth
-    predict_illustrate(
-        img_path, config_path, display, output_dir, gtruth, skip_illustration=False
-    )
+    predict(img_path, config_path, display, output_dir, gtruth, skip_illustration=False)

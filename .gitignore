@@ -59,4 +59,5 @@ nosetests.xml
 .coverage*
 
 wbia_pie/examples/manta-demo/db_localised
-wbia_pie/experiments/
+wbia_pie/experiments
+wbia_pie/embeddings
