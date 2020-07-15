@@ -186,7 +186,9 @@ def pie_preproc_dir(aid_list, config_path=_DEFAULT_CONFIG):
 
 # PIE's preproc and embed funcs require a .csv file linking filnames to labels (names)
 @register_ibs_method
-def pie_name_csv(ibs, aid_list, fpath="/home/wildme/code/ibeis-pie-module/wbia_pie/examples/dev/name_map.csv"):
+def pie_name_csv(ibs, aid_list, fpath=None):
+    if fpath is None:
+        fpath = os.path.join(_PLUGIN_FOLDER, 'examples/dev/name_map.csv')
     name_texts = ibs.get_annot_name_texts(aid_list)
     fnames = ibs.get_annot_image_paths(aid_list)
     # only want final, file part of fpaths
