@@ -207,9 +207,6 @@ KWARGS = OrderedDict(
     # packages=find_packages(),
     packages=[
         'wbia_pie',
-        'wbia_pie._internal',
-        'wbia_pie.tests',
-        'wbia_pie.util_scripts',
     ],
     package_dir={'wbia_pie': 'wbia_pie'},
     include_package_data=False,
