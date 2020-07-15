@@ -10,6 +10,8 @@ rm -rf *.egg-info
 rm -rf mb_work
 rm -rf wheelhouse
 
+rm -rf ibeis_pie
+
 rm -rf wbia_pie/examples/manta-demo/db_localised
 rm -rf wbia_pie/experiments
 rm -rf wbia_pie/embeddings
