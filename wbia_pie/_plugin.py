@@ -46,14 +46,14 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
             and directs PIE to the weight file, among other fields
 
     CommandLine:
-        python -m ibeis_pie._plugin --test-pie_embedding
-        python -m ibeis_pie._plugin --test-pie_embedding:0
+        python -m wbia_pie._plugin --test-pie_embedding
+        python -m wbia_pie._plugin --test-pie_embedding:0
 
     Example0:
     >>> # ENABLE_DOCTEST
-    >>> import ibeis_pie
+    >>> import wbia_pie
     >>> import numpy as np
-    >>> ibs = ibeis_pie._plugin.pie_testdb_ibs()
+    >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
     >>> aids = ibs.get_valid_aids(species='Mobula birostris')
     >>> embs_depc    = np.array(ibs.pie_embedding(aids, use_depc=True))
     >>> embs_no_depc = np.array(ibs.pie_embedding(aids, use_depc=False))
@@ -69,8 +69,8 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
     Example1:
     >>> # ENABLE_DOCTEST
     >>> # This tests that an aid's embedding is independent of the other aids processed in the same call
-    >>> import ibeis_pie
-    >>> ibs = ibeis_pie._plugin.pie_testdb_ibs()
+    >>> import wbia_pie
+    >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
     >>> aids = ibs.get_valid_aids(species='Mobula birostris')
     >>> aids1 = aids[:-1]
     >>> aids2 = aids[1:]
@@ -186,7 +186,7 @@ def pie_preproc_dir(aid_list, config_path=_DEFAULT_CONFIG):
 
 # PIE's preproc and embed funcs require a .csv file linking filnames to labels (names)
 @register_ibs_method
-def pie_name_csv(ibs, aid_list, fpath="/home/wildme/code/ibeis-pie-module/ibeis_pie/examples/dev/name_map.csv"):
+def pie_name_csv(ibs, aid_list, fpath="/home/wildme/code/ibeis-pie-module/wbia_pie/examples/dev/name_map.csv"):
     name_texts = ibs.get_annot_name_texts(aid_list)
     fnames = ibs.get_annot_image_paths(aid_list)
     # only want final, file part of fpaths
@@ -297,13 +297,13 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
             and directs PIE to the weight file, among other fields
 
     CommandLine:
-        python -m ibeis_pie._plugin --test-pie_predict_light
-        python -m ibeis_pie._plugin --test-pie_predict_light:0
+        python -m wbia_pie._plugin --test-pie_predict_light
+        python -m wbia_pie._plugin --test-pie_predict_light:0
 
     Example0:
     >>> # ENABLE_DOCTEST
-    >>> import ibeis_pie
-    >>> ibs = ibeis_pie._plugin.pie_testdb_ibs()
+    >>> import wbia_pie
+    >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
     >>> qaid = 2  # name = candy
     >>> daids = [1,3,4,5]
     >>> result = ibs.pie_predict_light(qaid, daids)
@@ -315,8 +315,8 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
     Example1:
     >>> Test that pie_predict_light and pie_predict return the same results
     >>> # ENABLE_DOCTEST
-    >>> import ibeis_pie
-    >>> ibs = ibeis_pie._plugin.pie_testdb_ibs()
+    >>> import wbia_pie
+    >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
     >>> qaid = 2
     >>> daids = [1,3,4,5]
     >>> pred_light = ibs.pie_predict_light(qaid, daids)
@@ -537,9 +537,8 @@ def pie_testdb_ibs():
 if __name__ == '__main__':
     r"""
     CommandLine:
-        python -m ibeis_pie._plugin --allexamples
+        python -m wbia_pie._plugin --allexamples
     """
     import multiprocessing
     multiprocessing.freeze_support()  # for win32
-    import utool as ut  # NOQA
     ut.doctest_funcs()
