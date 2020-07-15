@@ -21,8 +21,8 @@ _DEFAULT_CONFIG_DICT = {'config_path': _DEFAULT_CONFIG}
 
 
 MODEL_URLS = {
-    'manta': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
-    'whale': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
+    'mobula_birostris': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
+    'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
 }
 
 
@@ -132,9 +132,34 @@ def pie_compute_embedding(
     preproc_dir = ibs.pie_preprocess(aid_list)
     from .compute_db import compute
 
+    _ensure_model_exists(ibs, aid_list, config_path)
+
     embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export)
     embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths)
     return embeddings
+
+
+def _ensure_model_exists(ibs, aid_list, config_path):
+
+    species = ibs.get_annot_species_texts(aid_list[0])
+    model_url = MODEL_URLS[species]
+
+    # get expected model location from config file. Couple lines copied from Olga's compute_db.py
+
+    with open(config_path) as config_buffer:
+        config = json.loads(config_buffer.read())
+    exp_folder = os.path.join(
+        _PLUGIN_FOLDER, config['train']['exp_dir'], config['train']['exp_id']
+    )
+    local_fpath = os.path.join(exp_folder, 'best_weights.h5')
+
+    if os.path.isfile(local_fpath):
+        return True
+
+    # download the model and put it in the model_folder
+    os.makedirs(exp_folder, exist_ok=True)
+    ut.grab_file_url(model_url, download_dir=exp_folder, fname=local_fpath)
+    return True
 
 
 def fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths):
