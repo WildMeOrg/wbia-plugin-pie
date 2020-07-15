@@ -8,16 +8,16 @@
         "train_from_layer":     0,
         "input_width":          448,
         "input_height":         224,
-        
-        "_dropout_p":           0.3, 
+
+        "_dropout_p":           0.3,
         "embedding_size":       256,
         "loss":                 "semi_hard_triplet"
     },
-    
+
     "data": {
         "train_image_folder":   "data/whales_to_train_min3",
-        "split_seed":            777  
-        
+        "split_seed":            777
+
     },
 
     "train": {
@@ -33,30 +33,30 @@
          "aug_rate":            "whale",
         "cl_per_batch":        15,
         "sampl_per_class":     5,
-        
+
         "verbose":             1
     },
-    
+
     "evaluate": {
         "accuracy_at_k":        [1, 5, 10],
         "move_to_dataset":      2,
         "test_set":             "",
         "n_eval_epochs":        20,
         "far_target":           0.01
-        
+
     },
-    
+
     "general": {
-        "stdout-file":          true    
-        
+        "stdout-file":          true
+
     },
-    
+
     "prod": {
         "prefix":              "whale-db",
         "output":              "examples/whales/localized",
         "lfile":               "examples/whales/whales_to_train_min3.csv",
         "embeddings":          "examples/whales/embeddings",
         "temp":                "examples/whales"
-        
+
     }
 }

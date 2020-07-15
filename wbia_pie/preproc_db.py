@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 ===============================================================================
 Tool to preprocess images before training/using it with CNN for re-identification.
@@ -57,28 +58,57 @@ from .utils.utils import str2bool
 
 argparser = argparse.ArgumentParser(description='Prepare database from the data')
 
-argparser.add_argument('-i', '--impath', required=True, help='Path to image/folder with images to process (no nested)')
-argparser.add_argument('-d', '--draw', type=str2bool, help='Activate mask drawing tool for each image: True/False. Default: True', default=True)
-argparser.add_argument('-c', '--conf', help='Path to configuration file with default parameters', default='configs/manta.json')
-argparser.add_argument('-o', '--output', help='Path to output files. Default is in config.prod.output')
-argparser.add_argument('-l', '--lfile', help='List of files to process in csv file (w/header:file,label). Filenames only, not the full path. Default is in config.prod.lfile.')
-argparser.add_argument('-x', '--start_index', type=int, default=0, help='Index (number) of file to resume the process. Zero based. Useful for large folders')
+argparser.add_argument(
+    '-i',
+    '--impath',
+    required=True,
+    help='Path to image/folder with images to process (no nested)',
+)
+argparser.add_argument(
+    '-d',
+    '--draw',
+    type=str2bool,
+    help='Activate mask drawing tool for each image: True/False. Default: True',
+    default=True,
+)
+argparser.add_argument(
+    '-c',
+    '--conf',
+    help='Path to configuration file with default parameters',
+    default='configs/manta.json',
+)
+argparser.add_argument(
+    '-o', '--output', help='Path to output files. Default is in config.prod.output'
+)
+argparser.add_argument(
+    '-l',
+    '--lfile',
+    help='List of files to process in csv file (w/header:file,label). Filenames only, not the full path. Default is in config.prod.lfile.',
+)
+argparser.add_argument(
+    '-x',
+    '--start_index',
+    type=int,
+    default=0,
+    help='Index (number) of file to resume the process. Zero based. Useful for large folders',
+)
 
 
 def preproc(impath, config_path, lfile=None, draw=None, output=None, start_index=0):
 
     if not os.path.exists(impath):
-        raise ValueError('Image file/folder \"%s\" does not exist. Check input.' % impath)
+        raise ValueError('Image file/folder "%s" does not exist. Check input.' % impath)
     if not os.path.exists(config_path):
         raise Exception('Config file does not exist. Check input.')
 
-    #Read config file
+    # Read config file
     with open(config_path) as config_buffer:
         config = json.loads(config_buffer.read())
 
     if output is None:
         output_dir = config['prod']['output'].strip(os.sep)
         import pathlib
+
         plugin_dir = pathlib.Path(__file__).parent.absolute()
         # default output dir is in the same folder as this file
         output_dir = os.path.join(plugin_dir, output_dir)
@@ -88,20 +118,24 @@ def preproc(impath, config_path, lfile=None, draw=None, output=None, start_index
     if lfile is None:
         lfile = config['prod']['lfile']
 
-    #Reading list of image filenames
+    # Reading list of image filenames
     if os.path.isdir(impath):
         if os.path.exists(lfile):
             print('Reading only files specified in a file {}'.format(lfile))
-            #Read files and labels from csv
+            # Read files and labels from csv
             fileslabels = np.genfromtxt(lfile, dtype=str, skip_header=1, delimiter=',')
 
             fileslabels_dim = len(fileslabels.shape)
-            #Append parent directory to each filename to make a path
+            # Append parent directory to each filename to make a path
             if fileslabels_dim > 1:
-                files = np.array([os.path.join(impath, file) for file in fileslabels[:, 0]])
-                #Remove extension from filename (all files will be converted to .png in later steps)
-                fileslabels = np.array([[os.path.splitext(row[0])[0], row[1]] for row in fileslabels])
-                #Create dictionary filename_noext: label
+                files = np.array(
+                    [os.path.join(impath, file) for file in fileslabels[:, 0]]
+                )
+                # Remove extension from filename (all files will be converted to .png in later steps)
+                fileslabels = np.array(
+                    [[os.path.splitext(row[0])[0], row[1]] for row in fileslabels]
+                )
+                # Create dictionary filename_noext: label
                 file2lab = dict(fileslabels)
             # custom logic if there's just one file
             else:
@@ -109,15 +143,23 @@ def preproc(impath, config_path, lfile=None, draw=None, output=None, start_index
                 file2lab = {os.path.splitext(fileslabels[0])[0]: fileslabels[1]}
 
         else:
-            files = [os.path.join(impath, f) for f in os.listdir(impath) if os.path.isfile(os.path.join(impath, f))]
-            print('Found {} files in source {}. Subdirectories are ignored'.format(len(files), impath))
+            files = [
+                os.path.join(impath, f)
+                for f in os.listdir(impath)
+                if os.path.isfile(os.path.join(impath, f))
+            ]
+            print(
+                'Found {} files in source {}. Subdirectories are ignored'.format(
+                    len(files), impath
+                )
+            )
     else:
         if not os.path.exists(impath):
             raise ValueError('Image file does not exist. Check input')
         print('Reading image {}'.format(impath))
         files = [impath]
 
-    #Add subdirectory to the output folder
+    # Add subdirectory to the output folder
     (_, folder) = os.path.split(impath)
     output_dir = os.path.join(output_dir, folder)
     print('Output files will be stored in {}'.format(output_dir))
@@ -126,18 +168,18 @@ def preproc(impath, config_path, lfile=None, draw=None, output=None, start_index
 
     size = (config['model']['input_width'], config['model']['input_height'])
 
-    #Count processed images
+    # Count processed images
     proc_count = 0
 
-    #Sort order of the files
+    # Sort order of the files
     files.sort()
 
-    #Draw mask on each file and save
+    # Draw mask on each file and save
     for i in range(start_index, len(files)):
         file = files[i]
         print('Processing file {} {}'.format(i, file))
         if draw:
-            #Get filename for mask
+            # Get filename for mask
             (_, imname) = os.path.split(file)
             maskpath = os.path.join(output_dir, imname)
             md = MaskDrawer(file, maskpath)
@@ -147,46 +189,52 @@ def preproc(impath, config_path, lfile=None, draw=None, output=None, start_index
                 quit()
             if respond == 'next':
                 print('Skipped file {} {}'.format(i, file))
-                #do not include this image in the dataset
+                # do not include this image in the dataset
                 continue
             if respond == 'save' and md.done:
                 proc_count += 1
-                square = (config['model']['input_width'] == config['model']['input_height'])
-                croppedpath = crop_im_by_mask(file, maskpath, output_dir, padding=0, square=square)
+                square = config['model']['input_width'] == config['model']['input_height']
+                croppedpath = crop_im_by_mask(
+                    file, maskpath, output_dir, padding=0, square=square
+                )
             if respond == 'save' and not md.done:
                 proc_count += 1
                 croppedpath = file
         else:
             proc_count += 1
             croppedpath = file
-        #Resize to the size and convert to png format
+        # Resize to the size and convert to png format
         resizedpath = resize_imgs(croppedpath, output_dir, size)
         resizedpath = convert_to_fmt(resizedpath, imformat='png')
         print('Processed {} images'.format(proc_count))
 
     print('Total processed {} images'.format(proc_count))
 
-    #If files are supplied in one folder with labels in csv, rearrange processed it to one folder per class
+    # If files are supplied in one folder with labels in csv, rearrange processed it to one folder per class
     if os.path.exists(lfile):
         print('Rearranging files in directories as per labels...')
-        out_files = [os.path.join(output_dir, f) for f in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, f))]
+        out_files = [
+            os.path.join(output_dir, f)
+            for f in os.listdir(output_dir)
+            if os.path.isfile(os.path.join(output_dir, f))
+        ]
         for file in out_files:
-            #Get filename only with no extention
+            # Get filename only with no extention
             filename = os.path.basename(file)
             filename_noext = os.path.splitext(filename)[0]
-            #Get label and create folder with the same name
+            # Get label and create folder with the same name
             folder = os.path.join(output_dir, file2lab[filename_noext])
             if not os.path.exists(folder):
                 os.makedirs(folder)
-            #Move image to it's class folder
+            # Move image to it's class folder
             os.rename(file, os.path.join(folder, filename))
 
     print('Saved preprocessed images to %s' % output_dir)
     return output_dir
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     print(__doc__)
-    #Get arguments
+    # Get arguments
     args = argparser.parse_args()
     preproc(args.impath, args.conf, args.draw, args.output, args.lfile, args.start_index)

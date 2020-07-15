@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator
@@ -6,10 +7,14 @@ from keras.optimizers import Adam
 from scipy.special import comb
 
 import sys
+
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))  # models subdir
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))  # adds package folder to sys.path
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+)  # adds package folder to sys.path
 from base_model import BaseModel
 from tensorflow_losses import triplet_semihard_loss, lifted_struct_loss
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/utils')
 from utils import plot_model_loss_csv
 
@@ -17,22 +22,43 @@ from evaluation.metrics import distance
 
 
 class TripletLoss(BaseModel):
-    def __init__(self, backend, input_shape, frontend, embedding_size,
-                 connect_layer=-1, train_from_layer = 0, distance = 'l2', loss_func = 'semi_hard_triplet',
-                 weights='imagenet', show_summary=True):
+    def __init__(
+        self,
+        backend,
+        input_shape,
+        frontend,
+        embedding_size,
+        connect_layer=-1,
+        train_from_layer=0,
+        distance='l2',
+        loss_func='semi_hard_triplet',
+        weights='imagenet',
+        show_summary=True,
+    ):
         self.loss_func = loss_func
-        super(TripletLoss, self).__init__(input_shape, backend, frontend, embedding_size,
-                                 connect_layer, train_from_layer, distance, weights)
+        super(TripletLoss, self).__init__(
+            input_shape,
+            backend,
+            frontend,
+            embedding_size,
+            connect_layer,
+            train_from_layer,
+            distance,
+            weights,
+        )
         self.model = self.top_model
         if show_summary:
             print('Triplet Loss Model summary:')
             self.model.summary()
 
-
-    def compile_model(self, learning_rate,  margin=0.5, weights=[1., 1.], loss_func=None):
+    def compile_model(
+        self, learning_rate, margin=0.5, weights=[1.0, 1.0], loss_func=None
+    ):
         '''Compile the model'''
         loss_func = loss_func or self.loss_func
-        optimizer = Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+        optimizer = Adam(
+            lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0
+        )
         if self.loss_func == 'semi_hard_triplet':
             self.model.compile(loss=triplet_semihard_loss, optimizer=optimizer)
         elif self.loss_func == 'lifted_struct_loss':
@@ -40,11 +66,12 @@ class TripletLoss(BaseModel):
         else:
             raise Exception('{} loss is not supported'.format(self.loss_func))
 
-    def plot_history(self, file, from_epoch=0, showFig = True, saveFig = False, figName = 'plot.png'):
+    def plot_history(
+        self, file, from_epoch=0, showFig=True, saveFig=False, figName='plot.png'
+    ):
         plot_model_loss_csv(file, from_epoch, showFig, saveFig, figName)
 
-
-    def compute_dist(self, images, labels, sample_size = None):
+    def compute_dist(self, images, labels, sample_size=None):
         """Compute distances for pairs
 
         sample_size: None or integer, number of pairs as all pairs can be large number.
@@ -57,9 +84,11 @@ class TripletLoss(BaseModel):
         # Run forward pass to calculate embeddings
         print('Generating pairs and computing embeddings...')
 
-        #Define generator to loop over data
-        gen = ImageDataGenerator(data_format=K.image_data_format(),
-                                 preprocessing_function=self.backend_class.normalize)
+        # Define generator to loop over data
+        gen = ImageDataGenerator(
+            data_format=K.image_data_format(),
+            preprocessing_function=self.backend_class.normalize,
+        )
         features_shape = self.model.get_output_shape_at(0)[1:]
 
         if sample_size is None:
@@ -67,10 +96,10 @@ class TripletLoss(BaseModel):
         else:
             n_pairs = int(sample_size)
 
-        embeddings = np.zeros(shape = (2, n_pairs,) + features_shape)
-        actual_issame = np.full(shape = (n_pairs,), fill_value=True, dtype = np.bool)
+        embeddings = np.zeros(shape=(2, n_pairs,) + features_shape)
+        actual_issame = np.full(shape=(n_pairs,), fill_value=True, dtype=np.bool)
 
-        #Create all possible combinations of images (no repeats)
+        # Create all possible combinations of images (no repeats)
         idx = 0
         for i in range(images.shape[0]):
             for j in range(i):
@@ -88,11 +117,15 @@ class TripletLoss(BaseModel):
                 idx += 1
 
                 if idx >= n_pairs:
-                     break
+                    break
 
             if idx >= n_pairs:
-                     break
+                break
 
-        print('Number of pairs in evaluation {}, number of positive {}'.format(len(actual_issame), np.sum(actual_issame)))
+        print(
+            'Number of pairs in evaluation {}, number of positive {}'.format(
+                len(actual_issame), np.sum(actual_issame)
+            )
+        )
         dist_emb = distance(embeddings[0], embeddings[1], distance_metric=0)
         return dist_emb, actual_issame

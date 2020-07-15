@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function
 from ibeis.control import controller_inject
 from ibeis.constants import ANNOTATION_TABLE
@@ -14,7 +15,7 @@ _, register_ibs_method = controller_inject.make_ibs_register_decorator(__name__)
 register_api = controller_inject.get_ibeis_flask_api(__name__)
 register_preproc_annot = controller_inject.register_preprocs['annot']
 
-_PLUGIN_FOLDER  = os.path.dirname(os.path.realpath(__file__))
+_PLUGIN_FOLDER = os.path.dirname(os.path.realpath(__file__))
 _DEFAULT_CONFIG = os.path.join(_PLUGIN_FOLDER, 'configs/manta.json')
 _DEFAULT_CONFIG_DICT = {'config_path': _DEFAULT_CONFIG}
 
@@ -22,12 +23,13 @@ _DEFAULT_CONFIG_DICT = {'config_path': _DEFAULT_CONFIG}
 @register_ibs_method
 def pie_embedding_timed(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
     import time
+
     start = time.time()
-    ans   = ibs.pie_embedding(aid_list, config_path, use_depc)
+    ans = ibs.pie_embedding(aid_list, config_path, use_depc)
     elapsed = time.time() - start
-    print("Computed %s embeddings in %s seconds" % (len(aid_list), elapsed))
+    print('Computed %s embeddings in %s seconds' % (len(aid_list), elapsed))
     per_embedding = elapsed / len(aid_list)
-    print("average time is %s per embedding" % per_embedding)
+    print('average time is %s per embedding' % per_embedding)
     return ans
 
 
@@ -86,7 +88,9 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
     """
     if use_depc:
         config = {'config_path': config_path}
-        embeddings = ibs.depc_annot.get("PieEmbedding", aid_list, 'embedding', config=config)
+        embeddings = ibs.depc_annot.get(
+            'PieEmbedding', aid_list, 'embedding', config=config
+        )
     else:
         embeddings = pie_compute_embedding(ibs, aid_list, config_path=config_path)
     return embeddings
@@ -99,24 +103,30 @@ class PieEmbeddingConfig(dt.Config):  # NOQA
 
 
 @register_preproc_annot(
-    tablename='PieEmbedding', parents=[ANNOTATION_TABLE],
-    colnames=['embedding'], coltypes=[np.ndarray],
+    tablename='PieEmbedding',
+    parents=[ANNOTATION_TABLE],
+    colnames=['embedding'],
+    coltypes=[np.ndarray],
     configclass=PieEmbeddingConfig,
     fname='pie',
-    chunksize=128)
+    chunksize=128,
+)
 @register_ibs_method
 def pie_embedding_depc(depc, aid_list, config=_DEFAULT_CONFIG_DICT):
     ibs = depc.controller
     embs = pie_compute_embedding(ibs, aid_list, config_path=config['config_path'])
     for aid, emb in zip(aid_list, embs):
-        yield (np.array(emb), )
+        yield (np.array(emb),)
 
 
 # TODO: delete the generated files in dbpath when we're done computing embeddings
 @register_ibs_method
-def pie_compute_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, output_dir=None, prefix=None, export=False):
+def pie_compute_embedding(
+    ibs, aid_list, config_path=_DEFAULT_CONFIG, output_dir=None, prefix=None, export=False
+):
     preproc_dir = ibs.pie_preprocess(aid_list)
     from .compute_db import compute
+
     embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export)
     embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths)
     return embeddings
@@ -127,7 +137,7 @@ def fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths):
     # PIE messes with extensions, so throw those away
     filepaths = [os.path.splitext(fp)[0] for fp in filepaths]
 
-    names  = ibs.get_annot_name_texts(aid_list)
+    names = ibs.get_annot_name_texts(aid_list)
     fnames = ibs.get_annot_image_paths(aid_list)
     fnames = [os.path.split(fname)[1] for fname in fnames]
     aid_filepaths = [os.path.join(name, fname) for name, fname in zip(names, fnames)]
@@ -136,6 +146,7 @@ def fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths):
 
     # aid_filepaths and filepaths have the same entries in different orders
     filepath_to_idx = {filepaths[i]: i for i in range(len(filepaths))}
+
     def sorted_embedding(i):
         key = aid_filepaths[i]
         idx = filepath_to_idx[key]
@@ -165,6 +176,7 @@ def pie_preprocess(ibs, aid_list, config_path=_DEFAULT_CONFIG):
     label_file = ibs.pie_name_csv(aid_list, fpath=label_file_path)
     img_path = ibs.imgdir
     from .preproc_db import preproc
+
     dbpath = preproc(img_path, config_path, lfile=label_file, output=output_dir)
     return dbpath
 
@@ -178,7 +190,7 @@ def pie_preproc_dir(aid_list, config_path=_DEFAULT_CONFIG):
     conf_output_dir = config['prod']['output']
     output_dir = os.path.join(_PLUGIN_FOLDER, conf_output_dir, unique_prefix)
     if not os.path.isdir(output_dir):
-        print("PIE preproc_dir creating output directory %s" % output_dir)
+        print('PIE preproc_dir creating output directory %s' % output_dir)
         os.makedirs(output_dir)
     print('PIE preproc_dir for aids %s returning %s' % (aid_list, output_dir))
     return output_dir
@@ -195,12 +207,13 @@ def pie_name_csv(ibs, aid_list, fpath=None):
     fnames = [fname.split('/')[-1] for fname in fnames]
     csv_dicts = [{'file': f, 'label': l} for (f, l) in zip(fnames, name_texts)]
     _write_csv_dicts(csv_dicts, fpath)
-    print("Saved PIE name file to %s" % fpath)
+    print('Saved PIE name file to %s' % fpath)
     return fpath
 
 
 def _write_csv_dicts(csv_dicts, fpath):
     import csv
+
     keys = csv_dicts[0].keys()
     with open(fpath, 'w') as output_file:
         dict_writer = csv.DictWriter(output_file, keys)
@@ -221,13 +234,16 @@ class PieRequest(dt.base.VsOneSimilarityRequest):
 
 
 @register_preproc_annot(
-    tablename='Pie', parents=[ANNOTATION_TABLE, ANNOTATION_TABLE],
-    colnames=['score'], coltypes=[float],
+    tablename='Pie',
+    parents=[ANNOTATION_TABLE, ANNOTATION_TABLE],
+    colnames=['score'],
+    coltypes=[float],
     configclass=PieConfig,
     requestclass=PieRequest,
     fname='pie',
     rm_extern_on_delete=True,
-    chunksize=None)
+    chunksize=None,
+)
 def ibeis_plugin_pie(depc, qaid_list, daid_list, config):
     ibs = depc.controller
 
@@ -238,11 +254,13 @@ def ibeis_plugin_pie(depc, qaid_list, daid_list, config):
     qaid = qaids[0]
 
     # TODO: double-check config_path arg below is right vis à vis depc stuff
-    name_dist_dicts = ibs.pie_predict_light(qaid, daids, config_path=config['config_path'])
+    name_dist_dicts = ibs.pie_predict_light(
+        qaid, daids, config_path=config['config_path']
+    )
 
     # TODO: below funcs
     name_score_dicts = distance_dicts_to_score_dicts(name_dist_dicts)
-    aid_score_list  = aid_scores_from_name_scores(ibs, name_score_dicts, daids)
+    aid_score_list = aid_scores_from_name_scores(ibs, name_score_dicts, daids)
 
     for qaid, daid, daid_score in zip(qaid_list, daid_list, aid_score_list):
         yield daid_score
@@ -330,26 +348,28 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
 
     """
     # just call embeddings once bc of significant startup time on PIE's bulk embedding-generator
-    all_aids  = daid_list + [qaid]
-    all_embs  = ibs.pie_embedding(all_aids)
+    all_aids = daid_list + [qaid]
+    all_embs = ibs.pie_embedding(all_aids)
 
     # now get the embeddings into the shape and type PIE expects
-    db_embs   = np.array(all_embs[:-1])
+    db_embs = np.array(all_embs[:-1])
     query_emb = np.array(all_embs[-1:])  # query_emb.shape = (1, 256)
     db_labels = np.array(ibs.get_annot_name_texts(daid_list))
 
     from .predict import pred_light
+
     ans = pred_light(query_emb, db_embs, db_labels, config_path)
     return ans
 
 
 @register_ibs_method
 def pie_predict_light_2(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
-    db_embs   = np.array(ibs.pie_embedding(daid_list))
+    db_embs = np.array(ibs.pie_embedding(daid_list))
     db_labels = np.array(ibs.get_annot_name_texts(daid_list))
     # todo: cache this
     query_emb = ibs.pie_compute_embedding([qaid])
     from .predict import pred_light
+
     ans = pred_light(query_emb, db_embs, db_labels, config_path)
     return ans
 
@@ -361,6 +381,7 @@ def pie_predict(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, display=False
     impath = ibs.get_annot_image_paths(qaid)
 
     from .predict import predict
+
     ans = predict(impath, config, config_path, display)
     return ans
 
@@ -375,7 +396,7 @@ def pie_predict_prepare_config(ibs, daid_list, base_config_file=_DEFAULT_CONFIG)
         config = json.loads(conf_file.read())
 
     config['prod']['embeddings'] = pred_data_dir
-    config['prod']['temp']       = pred_data_dir
+    config['prod']['temp'] = pred_data_dir
 
     return config
 
@@ -399,11 +420,11 @@ def pie_ensure_predict_datafiles(ibs, daid_list, base_config_file=_DEFAULT_CONFI
 
 # directory where we'll store embeddings and label .csv's to be read by PIE
 def pie_annot_info_dir(aid_list):
-    embeddings_dir  = os.path.join(_PLUGIN_FOLDER, 'embeddings')
-    unique_label    = str(hash(tuple(aid_list)))
+    embeddings_dir = os.path.join(_PLUGIN_FOLDER, 'embeddings')
+    unique_label = str(hash(tuple(aid_list)))
     output_dir = os.path.join(embeddings_dir, unique_label)
     if not os.path.isdir(output_dir):
-        print("PIE embeddings_dir creating output directory %s" % output_dir)
+        print('PIE embeddings_dir creating output directory %s' % output_dir)
         os.makedirs(output_dir)
     return output_dir
 
@@ -421,10 +442,14 @@ def _write_labels_csv(ibs, aid_list, fname):
     names = ibs.get_annot_name_texts(aid_list)
     # PIE expects a zero-indexed "class" column that corresponds with the names; like temporary nids
     unique_names = list(set(names))
-    name_class_dict = {name: i for (name, i) in zip(unique_names, range(len(unique_names)))}
+    name_class_dict = {
+        name: i for (name, i) in zip(unique_names, range(len(unique_names)))
+    }
     classes = [name_class_dict[name] for name in names]
-    files   = ibs.get_annot_image_paths(aid_list)
-    csv_dicts = [{'class': c, 'file': f, 'name': n} for (c, f, n) in zip(classes, files, names)]
+    files = ibs.get_annot_image_paths(aid_list)
+    csv_dicts = [
+        {'class': c, 'file': f, 'name': n} for (c, f, n) in zip(classes, files, names)
+    ]
     _write_csv_dicts(csv_dicts, fname)
     print('PIE wrote labels csv to %s' % fname)
     return fname
@@ -438,15 +463,17 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
     labels1 = [entry['label'] for entry in answer_dict1]
     labels2 = [entry['label'] for entry in answer_dict2]
     agree = [lab1 == lab2 for (lab1, lab2) in zip(labels1, labels2)]
-    assert(all(agree), "Label rankings differ at rank %s" % agree.index(False))
-    print("Labels agree")
+    assert all(agree), 'Label rankings differ at rank %s' % agree.index(False)
+    print('Labels agree')
 
     distances1 = [entry['distance'] for entry in answer_dict1]
     distances2 = [entry['distance'] for entry in answer_dict2]
     diffs = [abs(d1 - d2) for (d1, d2) in zip(distances1, distances2)]
-    assert(max(diffs) < dist_tolerance,
-           "Distances diverge at rank %s" % diffs.index(max(diffs)))
-    print("Distances are all within tolerance of %s" % dist_tolerance)
+    assert max(diffs) < dist_tolerance, 'Distances diverge at rank %s' % diffs.index(
+        max(diffs)
+    )
+
+    print('Distances are all within tolerance of %s' % dist_tolerance)
 
 
 @register_ibs_method
@@ -484,13 +511,13 @@ def accuracy_at_k(ibs, ranks, max_rank=10):
 def subset_with_resights(ibs, aid_list, n=3):
     names = ibs.get_annot_name_rowids(aid_list)
     name_counts = _count_dict(names)
-    good_annots = [aid for aid, name in zip(aid_list, names)
-                   if name_counts[name] >= n]
+    good_annots = [aid for aid, name in zip(aid_list, names) if name_counts[name] >= n]
     return good_annots
 
 
 def _count_dict(item_list):
     from collections import defaultdict
+
     count_dict = defaultdict(int)
     for item in item_list:
         count_dict[item] += 1
@@ -499,6 +526,7 @@ def _count_dict(item_list):
 
 def _invert_dict(d):
     from collections import defaultdict
+
     inverted = defaultdict(list)
     for key, value in d.items():
         inverted[value].append(key)
@@ -508,13 +536,14 @@ def _invert_dict(d):
 # Careful, this returns a different ibs than you sent in
 def pie_testdb_ibs():
     import ibeis
+
     testdb_name = 'manta-test'
     try:
         ans_ibs = ibeis.opendb(testdb_name)
         aids = ans_ibs.get_valid_annots()
         assert len(aids) > 3
         return ans_ibs
-    except:
+    except Exception:
         print("PIE testdb does not exist; creating it with PIE's example images")
 
     ans_ibs = ibeis.opendb(testdb_name, allow_newdir=True)
@@ -527,11 +556,13 @@ def pie_testdb_ibs():
 
     gid_list = ans_ibs.add_images(gpaths)
     nid_list = ans_ibs.add_names(names)
-    species  = ['Mobula birostris'] * len(gid_list)
+    species = ['Mobula birostris'] * len(gid_list)
     # these images are pre-cropped aka trivial annotations
-    wh_list  = ans_ibs.get_image_sizes(gid_list)
+    wh_list = ans_ibs.get_image_sizes(gid_list)
     bbox_list = [[0, 0, w, h] for (w, h) in wh_list]
-    ans_ibs.add_annots(gid_list, bbox_list=bbox_list, species_list=species, nid_list=nid_list)
+    ans_ibs.add_annots(
+        gid_list, bbox_list=bbox_list, species_list=species, nid_list=nid_list
+    )
 
     return ans_ibs
 
@@ -542,5 +573,6 @@ if __name__ == '__main__':
         python -m wbia_pie._plugin --allexamples
     """
     import multiprocessing
+
     multiprocessing.freeze_support()  # for win32
     ut.doctest_funcs()
