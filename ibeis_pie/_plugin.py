@@ -472,7 +472,7 @@ def pie_mass_accuracy(ibs, aid_list):
 def accuracy_at_k(ibs, ranks, max_rank=10):
     counts = [ranks.count(i) for i in range(1, max_rank + 1)]
     percent_counts = [count / len(ranks) for count in counts]
-    cumulative_percent = [sum(percent_counts[:i]) for i in range(len(percent_counts))]
+    cumulative_percent = [sum(percent_counts[:i]) for i in range(1, len(percent_counts)+1)]
 
 
 @register_ibs_method
