@@ -27,7 +27,10 @@ else:
 (print, rrr, profile) = ut.inject2(__name__)
 
 _, register_ibs_method = controller_inject.make_ibs_register_decorator(__name__)
-register_api = controller_inject.get_wbia_flask_api(__name__)
+if USE_WBIA:
+    register_api = controller_inject.get_wbia_flask_api(__name__)
+else:
+    register_api = controller_inject.get_ibeis_flask_api(__name__)
 register_preproc_annot = controller_inject.register_preprocs['annot']
 
 _PLUGIN_FOLDER = os.path.dirname(os.path.realpath(__file__))
