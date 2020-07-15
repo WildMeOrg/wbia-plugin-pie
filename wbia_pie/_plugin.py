@@ -86,8 +86,8 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
         >>> diffs = np.abs(embs_depc - embs_no_depc)
         >>> assert diffs.max() < 1e-8
         >>> # each embedding is 256 floats long so we'll just check a bit
-        >>> annot_uuids = ibs.get_annot_uuids(aids)
-        >>> wanted_uuid = uuid.UUID('04f94a8d-fc0f-4bc8-bfb6-fbabaf881a65')
+        >>> annot_uuids = ibs.get_annot_semantic_uuids(aids)
+        >>> wanted_uuid = uuid.UUID('2a8344f2-17b1-a9b0-66d6-4f2c0e565bf1')
         >>> wanted_index = annot_uuids.index(wanted_uuid)
         >>> assert wanted_index is not None and wanted_index in list(range(len(aids)))
         >>> result = embs_depc[wanted_index][:20]
@@ -378,9 +378,9 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
         >>> import wbia_pie
         >>> import uuid
         >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
-        >>> qannot_uuid = uuid.UUID('ab9cd324-39fc-444a-b711-b94e537a49da')  # name = candy
+        >>> qannot_uuid = uuid.UUID('588dc49a-9b7f-d362-1667-1f9f002cd566')  # name = candy
         >>> aids = ibs.get_valid_aids()
-        >>> qaid = ibs.get_annot_aids_from_uuid(qannot_uuid)
+        >>> qaid = ibs.get_annot_aids_from_semantic_uuid(qannot_uuid)
         >>> daids = sorted(list(set(aids) - set([qaid])))
         >>> ibs.depc_annot.delete_property_all('PieEmbedding', aids)
         >>> pred       = ibs.pie_predict(qaid, daids)
