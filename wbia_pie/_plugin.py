@@ -1,12 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function
-from wbia.control import controller_inject
-from wbia.constants import ANNOTATION_TABLE
-from wbia import dtool as dt
 import utool as ut
 import numpy as np
 import os
 import json
+
+try:
+    import wbia
+    USE_WBIA = True
+except:
+    import ibeis as wbia
+    USE_WBIA = False
+
+if USE_WBIA:
+    from wbia.control import controller_inject
+    from wbia.constants import ANNOTATION_TABLE
+    from wbia import dtool as dt
+else:
+    from ibeis.control import controller_inject
+    from ibeis.constants import ANNOTATION_TABLE
+    import dtool as dt
 
 
 (print, rrr, profile) = ut.inject2(__name__)
@@ -60,6 +73,7 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
         >>> # ENABLE_DOCTEST
         >>> import wbia_pie
         >>> import numpy as np
+        >>> import uuid
         >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
         >>> aids = ibs.get_valid_aids(species='Mobula birostris')
         >>> embs_depc    = np.array(ibs.pie_embedding(aids, use_depc=True))
@@ -67,11 +81,18 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
         >>> diffs = np.abs(embs_depc - embs_no_depc)
         >>> assert diffs.max() < 1e-8
         >>> # each embedding is 256 floats long so we'll just check a bit
-        >>> result = embs_depc[0][:20]
-        array([-0.03839333,  0.01182338,  0.02393869, -0.07164327, -0.04367629,
-               -0.00150531,  0.01324393,  0.10909598,  0.02349781,  0.08439559,
-               -0.06415793,  0.0110384 ,  0.03897202, -0.11256221,  0.00709192,
-                0.10403764,  0.00615681, -0.10405623,  0.0320793 , -0.0394897 ])
+        >>> annot_uuids = ibs.get_annot_uuids(aids)
+        >>> wanted_uuid = uuid.UUID('04f94a8d-fc0f-4bc8-bfb6-fbabaf881a65')
+        >>> wanted_index = annot_uuids.index(wanted_uuid)
+        >>> assert wanted_index is not None and wanted_index in list(range(len(aids)))
+        >>> result = embs_depc[wanted_index][:20]
+        >>> result_ = np.array([-0.03839333,  0.01182338,  0.02393869, -0.07164327, -0.04367629,
+        >>>                     -0.00150531,  0.01324393,  0.10909598,  0.02349781,  0.08439559,
+        >>>                     -0.06415793,  0.0110384 ,  0.03897202, -0.11256221,  0.00709192,
+        >>>                      0.10403764,  0.00615681, -0.10405623,  0.0320793 , -0.0394897 ])
+        >>> assert result.shape == result_.shape
+        >>> diffs = np.abs(result - result_)
+        >>> assert diffs.max() < 1e-5
 
     Example:
         >>> # ENABLE_DOCTEST
@@ -356,6 +377,7 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
         >>> qaid = 2  # name = candy
         >>> daids = [1,3,4,5]
         >>> result = ibs.pie_predict_light(qaid, daids)
+        >>> print(result)
         [{'distance': 0.9821137124475428, 'label': 'candy'},
          {'distance': 1.1391638476158368, 'label': 'valentine'},
          {'distance': 1.3051054116154164, 'label': 'jel'},
@@ -566,8 +588,6 @@ def _invert_dict(d):
 
 # Careful, this returns a different ibs than you sent in
 def pie_testdb_ibs():
-    import wbia
-
     testdb_name = 'manta-test'
     try:
         ans_ibs = wbia.opendb(testdb_name)
