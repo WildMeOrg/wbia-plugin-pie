@@ -7,9 +7,11 @@ import json
 
 try:
     import wbia
+
     USE_WBIA = True
-except:
+except Exception:
     import ibeis as wbia
+
     USE_WBIA = False
 
 if USE_WBIA:
@@ -108,9 +110,7 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
         >>> embs1 = np.array(embs1[1:])
         >>> embs2 = np.array(embs2[:-1])
         >>> compare_embs = np.abs(embs1 - embs2)
-        >>> compare_embs.max() < 1e-8
-        True
-
+        >>> assert compare_embs.max() < 1e-8
     """
     if use_depc:
         config = {'config_path': config_path}
@@ -368,35 +368,32 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
             and directs PIE to the weight file, among other fields
 
     CommandLine:
-        python -m wbia_pie._plugin pie_predict_light:0
+        python -m wbia_pie._plugin pie_predict_light
 
     Example:
         >>> # ENABLE_DOCTEST
         >>> import wbia_pie
+        >>> import uuid
         >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
-        >>> qaid = 2  # name = candy
-        >>> daids = [1,3,4,5]
-        >>> result = ibs.pie_predict_light(qaid, daids)
-        >>> print(result)
-        [{'distance': 0.9821137124475428, 'label': 'candy'},
-         {'distance': 1.1391638476158368, 'label': 'valentine'},
-         {'distance': 1.3051054116154164, 'label': 'jel'},
-         {'distance': 1.378156086911126, 'label': 'april'}]
-
-    Example:
-        >>> # ENABLE_DOCTEST
-        >>> # Test that pie_predict_light and pie_predict return the same results
-        >>> import wbia_pie
-        >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
-        >>> qaid = 2
-        >>> daids = [1,3,4,5]
-        >>> pred_light = ibs.pie_predict_light(qaid, daids)
+        >>> qannot_uuid = uuid.UUID('ab9cd324-39fc-444a-b711-b94e537a49da')  # name = candy
+        >>> aids = ibs.get_valid_aids()
+        >>> qaid = ibs.get_annot_aids_from_uuid(qannot_uuid)
+        >>> daids = sorted(list(set(aids) - set([qaid])))
+        >>> ibs.depc_annot.delete_property_all('PieEmbedding', aids)
         >>> pred       = ibs.pie_predict(qaid, daids)
-        [{'distance': 0.7318770335113057, 'label': 'april'},
-        {'distance': 1.257755410232425, 'label': 'jel'},
-        {'distance': 1.378156086911126, 'label': 'valentine'},
-        {'distance': 1.575796497115955, 'label': 'candy'}]
-
+        >>> ibs.depc_annot.delete_property_all('PieEmbedding', aids)
+        >>> pred_light = ibs.pie_predict_light(qaid, daids)
+        >>> expected_results = {
+        >>>     'candy': 0.9821299690545198,
+        >>>     'valentine': 1.139240264231686,
+        >>>     'jel': 1.3051159328285846,
+        >>>     'april': 1.378186756498962,
+        >>> }
+        >>> for value in pred + pred_light:
+        >>>     label = value['label']
+        >>>     diff = np.abs(value['distance'] - expected_results[label])
+        >>>     print('Checking %r - diff %0.08f' % (label, diff, ))
+        >>>     assert diff < 1e-6
     """
     # just call embeddings once bc of significant startup time on PIE's bulk embedding-generator
     all_aids = daid_list + [qaid]
@@ -620,4 +617,5 @@ def pie_testdb_ibs():
 
 if __name__ == '__main__':
     import xdoctest as xdoc
+
     xdoc.doctest_module(__file__)
