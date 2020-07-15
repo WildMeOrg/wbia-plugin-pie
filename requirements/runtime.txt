@@ -1,8 +1,5 @@
-
-# wbia
-# wbia-utool
-
-ibeis
+wbia
+wbia-utool
 keras
 matplotlib
 networkx
@@ -12,4 +9,3 @@ scikit-image
 scikit-learn
 scipy
 tensorflow
-utool

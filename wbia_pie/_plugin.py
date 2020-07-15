@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function
-from ibeis.control import controller_inject
-from ibeis.constants import ANNOTATION_TABLE
+from wbia.control import controller_inject
+from wbia.constants import ANNOTATION_TABLE
+from wbia import dtool as dt
 import utool as ut
-import dtool as dt
 import numpy as np
 import os
 import json
@@ -12,7 +12,7 @@ import json
 (print, rrr, profile) = ut.inject2(__name__)
 
 _, register_ibs_method = controller_inject.make_ibs_register_decorator(__name__)
-register_api = controller_inject.get_ibeis_flask_api(__name__)
+register_api = controller_inject.get_wbia_flask_api(__name__)
 register_preproc_annot = controller_inject.register_preprocs['annot']
 
 _PLUGIN_FOLDER = os.path.dirname(os.path.realpath(__file__))
@@ -42,7 +42,7 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
     Olga's code has been modified and plugin-ified for this work.
 
     Args:
-        ibs         (IBEISController): IBEIS controller object
+        ibs         (IBEISController): IBEIS / WBIA controller object
         aid_list  (int): annot ids specifying the input
         config_path (str): path to a PIE config .json file that parameterizes the model
             and directs PIE to the weight file, among other fields
@@ -244,7 +244,7 @@ class PieRequest(dt.base.VsOneSimilarityRequest):
     rm_extern_on_delete=True,
     chunksize=None,
 )
-def ibeis_plugin_pie(depc, qaid_list, daid_list, config):
+def wbia_plugin_pie(depc, qaid_list, daid_list, config):
     ibs = depc.controller
 
     qaids = list(set(qaid_list))
@@ -309,7 +309,7 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
     Matches an annotation using PIE, by calling PIE's k-means distance measure on PIE embeddings.
 
     Args:
-        ibs (IBEISController): IBEIS controller object
+        ibs (IBEISController): IBEIS / WBIA controller object
         qaid            (int): query annot
         daid_list       (int): database annots
             and directs PIE to the weight file, among other fields
@@ -535,18 +535,18 @@ def _invert_dict(d):
 
 # Careful, this returns a different ibs than you sent in
 def pie_testdb_ibs():
-    import ibeis
+    import wbia
 
     testdb_name = 'manta-test'
     try:
-        ans_ibs = ibeis.opendb(testdb_name)
+        ans_ibs = wbia.opendb(testdb_name)
         aids = ans_ibs.get_valid_annots()
         assert len(aids) > 3
         return ans_ibs
     except Exception:
         print("PIE testdb does not exist; creating it with PIE's example images")
 
-    ans_ibs = ibeis.opendb(testdb_name, allow_newdir=True)
+    ans_ibs = wbia.opendb(testdb_name, allow_newdir=True)
 
     test_image_folder = os.path.join(_PLUGIN_FOLDER, 'examples/manta-demo/test')
     test_images = os.listdir(test_image_folder)
