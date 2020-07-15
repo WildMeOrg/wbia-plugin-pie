@@ -87,7 +87,7 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
         >>> assert diffs.max() < 1e-8
         >>> # each embedding is 256 floats long so we'll just check a bit
         >>> annot_uuids = ibs.get_annot_semantic_uuids(aids)
-        >>> wanted_uuid = uuid.UUID('2a8344f2-17b1-a9b0-66d6-4f2c0e565bf1')
+        >>> wanted_uuid = uuid.UUID('588dc49a-9b7f-d362-1667-1f9f002cd566')
         >>> wanted_index = annot_uuids.index(wanted_uuid)
         >>> assert wanted_index is not None and wanted_index in list(range(len(aids)))
         >>> result = embs_depc[wanted_index][:20]
@@ -376,9 +376,10 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
     Example:
         >>> # ENABLE_DOCTEST
         >>> import wbia_pie
+        >>> import numpy as np
         >>> import uuid
         >>> ibs = wbia_pie._plugin.pie_testdb_ibs()
-        >>> qannot_uuid = uuid.UUID('588dc49a-9b7f-d362-1667-1f9f002cd566')  # name = candy
+        >>> qannot_uuid = uuid.UUID('2a8344f2-17b1-a9b0-66d6-4f2c0e565bf1')  # name = candy
         >>> aids = ibs.get_valid_aids()
         >>> qaid = ibs.get_annot_aids_from_semantic_uuid(qannot_uuid)
         >>> daids = sorted(list(set(aids) - set([qaid])))
@@ -602,6 +603,8 @@ def pie_testdb_ibs():
     test_image_folder = os.path.join(_PLUGIN_FOLDER, 'examples/manta-demo/test')
     test_images = os.listdir(test_image_folder)
     test_images = [fname for fname in test_images if fname.lower().endswith('.png')]
+    test_images = sorted(test_images)
+
     gpaths = [os.path.join(test_image_folder, fname) for fname in test_images]
     names = [fname.split('-')[0] for fname in test_images]
 
