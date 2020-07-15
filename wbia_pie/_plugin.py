@@ -20,6 +20,12 @@ _DEFAULT_CONFIG = os.path.join(_PLUGIN_FOLDER, 'configs/manta.json')
 _DEFAULT_CONFIG_DICT = {'config_path': _DEFAULT_CONFIG}
 
 
+MODEL_URLS = {
+    'manta': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
+    'whale': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
+}
+
+
 @register_ibs_method
 def pie_embedding_timed(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
     import time
