@@ -1,5 +1,5 @@
 # setuptools_scm version discovery writes the version to <pkg>/_version.py
-**/_version.py
+_version.py
 
 # idk why this exists. probably jon's vimrc
 '
@@ -59,3 +59,4 @@ nosetests.xml
 .coverage*
 
 wbia_pie/examples/manta-demo/db_localised
+wbia_pie/experiments/
