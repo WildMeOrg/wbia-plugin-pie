@@ -387,7 +387,7 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
 
     # TODO: double-check config_path arg below is right vis à vis depc stuff
     name_dist_dicts = ibs.pie_predict_light(
-        qaid, daids, config_path=config['config_path']
+        qaid, daids, config_path=config['config_path'], n_results=1000
     )
 
     # TODO: below funcs
@@ -399,7 +399,8 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
 
 
 def distance_to_score(distance):
-    score = 1 / (1 + distance)
+    # score = 1 / (1 + distance)
+    score = np.exp(-distance / 2.0)
     return score
 
 
@@ -436,7 +437,7 @@ def aid_scores_from_name_scores(ibs, name_score_dicts, daid_list):
 
 
 @register_ibs_method
-def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
+def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, n_results=10):
     r"""
     Matches an annotation using PIE, by calling PIE's k-means distance measure on PIE embeddings.
 
@@ -488,7 +489,7 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
 
     from .predict import pred_light
 
-    ans = pred_light(query_emb, db_embs, db_labels, config_path)
+    ans = pred_light(query_emb, db_embs, db_labels, config_path, n_results)
     return ans
 
 
