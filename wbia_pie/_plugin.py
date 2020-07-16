@@ -495,7 +495,7 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, n_resul
     return ans
 
 
-def _db_labels_for_pie(ibs, aid_list):
+def _db_labels_for_pie(ibs, daid_list):
     db_labels = ibs.get_annot_name_texts(daid_list)
     db_auuids = ibs.get_annot_semantic_uuids(daid_list)
     noname = ibs.constants.UNKNOWN
