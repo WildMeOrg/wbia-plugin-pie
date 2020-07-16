@@ -317,7 +317,7 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
     aid_score_list = aid_scores_from_name_scores(ibs, name_score_dicts, daids)
 
     for qaid, daid, daid_score in zip(qaid_list, daid_list, aid_score_list):
-        yield daid_score
+        yield (daid_score,)
 
 
 def distance_to_score(distance):
