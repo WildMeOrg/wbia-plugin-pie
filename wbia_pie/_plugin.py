@@ -393,8 +393,10 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
     # TODO: below funcs
     name_score_dicts = distance_dicts_to_score_dicts(name_dist_dicts)
     aid_score_list = aid_scores_from_name_scores(ibs, name_score_dicts, daids)
+    aid_score_dict = dict(zip(daids, aid_score_list))
 
-    for qaid, daid, daid_score in zip(qaid_list, daid_list, aid_score_list):
+    for daid in daid_list:
+        daid_score = aid_score_dict.get(daid)
         yield (daid_score,)
 
 
