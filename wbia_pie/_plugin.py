@@ -406,12 +406,24 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
     # now get the embeddings into the shape and type PIE expects
     db_embs = np.array(all_embs[:-1])
     query_emb = np.array(all_embs[-1:])  # query_emb.shape = (1, 256)
-    db_labels = np.array(ibs.get_annot_name_texts(daid_list))
+    db_labels = _db_labels_for_pie(ibs, daid_list)
 
     from .predict import pred_light
 
     ans = pred_light(query_emb, db_embs, db_labels, config_path)
     return ans
+
+
+def _db_labels_for_pie(ibs, aid_list):
+    db_labels = ibs.get_annot_name_texts(daid_list)
+    noname = ibs.constants.UNKNOWN
+    db_auuids = ibs.get_annot_semantic_uuids(daid_list)
+    # later we must know which db_labels are for single auuids, hence prefix
+    db_auuids = [noname + str(auuid) for auuid in db_auuids]
+    db_labels = [lab if lab is not noname else auuid
+                 for lab, auuid in zip(db_labels, db_auuids)]
+    db_labels = np.array(db_labels)
+    return db_labels
 
 
 @register_ibs_method
@@ -528,8 +540,7 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
     print('Distances are all within tolerance of %s' % dist_tolerance)
 
 
-@register_ibs_method
-def pie_accuracy(ibs, qaid, daid_list):
+def _pie_accuracy(ibs, qaid, daid_list):
     daids = daid_list.copy()
     daids.remove(qaid)
     ans = ibs.pie_predict_light(qaid, daids)
@@ -547,7 +558,7 @@ def pie_accuracy(ibs, qaid, daid_list):
 def pie_mass_accuracy(ibs, aid_list, daid_list=None):
     if daid_list is None:
         daid_list = aid_list
-    ranks = [ibs.pie_accuracy(aid, daid_list) for aid in aid_list]
+    ranks = [_pie_accuracy(ibs, aid, daid_list) for aid in aid_list]
     return ranks
 
 
@@ -571,11 +582,45 @@ def subset_with_resights(ibs, aid_list, n=3):
 
 def _count_dict(item_list):
     from collections import defaultdict
-
     count_dict = defaultdict(int)
     for item in item_list:
         count_dict[item] += 1
     return dict(count_dict)
+
+
+def subset_with_resights_range(ibs, aid_list, min_sights=3, max_sights=10):
+    name_to_aids = _name_dict(ibs, aid_list)
+    final_aids = []
+    import random
+    for name, aids in name_to_aids.items():
+        if len(aids) < min_sights:
+            continue
+        elif len(aids) <= max_sights:
+            final_aids += (aids)
+        else:
+            final_aids += sorted(random.sample(aids, max_sights))
+    return final_aids
+
+
+@register_ibs_method
+def pie_new_accuracy(ibs, aid_list, min_sights=3, max_sights=10):
+    aids = subset_with_resights_range(ibs, aid_list, min_sights, max_sights)
+    ranks = ibs.pie_mass_accuracy(aids)
+    accuracy = ibs.accuracy_at_k(ranks)
+    print('Accuracy at k for annotations with %s-%s sightings:' % (min_sights, max_sights))
+    print(accuracy)
+    return accuracy
+
+
+def _name_dict(ibs, aid_list):
+    names = ibs.get_annot_name_rowids(aid_list)
+    from collections import defaultdict
+    name_aids = defaultdict(list)
+    for aid, name in zip(aid_list, names):
+        name_aids[name].append(aid)
+    return name_aids
+
+
 
 
 def _invert_dict(d):
