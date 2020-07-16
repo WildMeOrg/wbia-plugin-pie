@@ -329,7 +329,7 @@ def get_match_results(depc, qaid_list, daid_list, score_list, config):
 
 
 class PieRequest(dt.base.VsOneSimilarityRequest):
-    _symmetric = True
+    _symmetric = False
     _tablename = 'Pie'
 
     @ut.accepts_scalar_input
@@ -384,6 +384,8 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
 
     assert len(qaids) == 1
     qaid = qaids[0]
+
+    ut.embed()
 
     # TODO: double-check config_path arg below is right vis à vis depc stuff
     name_dist_dicts = ibs.pie_predict_light(
