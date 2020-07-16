@@ -332,25 +332,12 @@ class PieRequest(dt.base.VsOneSimilarityRequest):
     _symmetric = True
     _tablename = 'Pie'
 
-    def overlay_outline(request, chip, edge_color=(255, 0, 0)):
-        import cv2
-
-        scale = request.config.curvrank_scale
-
-        chip_ = np.copy(chip)
-        chip_ = cv2.resize(chip_, dsize=None, fx=scale, fy=scale)
-        h, w = chip_.shape[:2]
-
-        return chip_
-
     @ut.accepts_scalar_input
     def get_fmatch_overlayed_chip(request, aid_list, overlay=True, config=None):
         depc = request.depc
         ibs = depc.controller
         chips = ibs.get_annot_chips(aid_list)
-
-        overlay_chips = [request.overlay_outline(chip) for chip in zip(chips)]
-        return overlay_chips
+        return chips
 
     def render_single_result(request, cm, aid, **kwargs):
         # HACK FOR WEB VIEWER
@@ -358,8 +345,6 @@ class PieRequest(dt.base.VsOneSimilarityRequest):
         chips = request.get_fmatch_overlayed_chip(
             [cm.qaid, aid], overlay=overlay, config=request.config
         )
-        import vtool as vt
-
         out_img = vt.stack_image_list(chips)
         return out_img
 
