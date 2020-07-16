@@ -18,10 +18,12 @@ if USE_WBIA:
     from wbia.control import controller_inject
     from wbia.constants import ANNOTATION_TABLE
     from wbia import dtool as dt
+    import vtool as vt
 else:
     from ibeis.control import controller_inject
     from ibeis.constants import ANNOTATION_TABLE
     import dtool as dt
+    import vtool as vt
 
 
 (print, rrr, profile) = ut.inject2(__name__)
@@ -282,9 +284,85 @@ class PieConfig(dt.Config):  # NOQA
         ]
 
 
+def get_match_results(depc, qaid_list, daid_list, score_list, config):
+    """ converts table results into format for ipython notebook """
+    # qaid_list, daid_list = request.get_parent_rowids()
+    # score_list = request.score_list
+    # config = request.config
+
+    unique_qaids, groupxs = ut.group_indices(qaid_list)
+    # grouped_qaids_list = ut.apply_grouping(qaid_list, groupxs)
+    grouped_daids = ut.apply_grouping(daid_list, groupxs)
+    grouped_scores = ut.apply_grouping(score_list, groupxs)
+
+    ibs = depc.controller
+    unique_qnids = ibs.get_annot_nids(unique_qaids)
+
+    # scores
+    _iter = zip(unique_qaids, unique_qnids, grouped_daids, grouped_scores)
+    for qaid, qnid, daids, scores in _iter:
+        dnids = ibs.get_annot_nids(daids)
+
+        # Remove distance to self
+        annot_scores = np.array(scores)
+        daid_list_ = np.array(daids)
+        dnid_list_ = np.array(dnids)
+
+        is_valid = daid_list_ != qaid
+        daid_list_ = daid_list_.compress(is_valid)
+        dnid_list_ = dnid_list_.compress(is_valid)
+        annot_scores = annot_scores.compress(is_valid)
+
+        # Hacked in version of creating an annot match object
+        match_result = wbia.AnnotMatch()
+        match_result.qaid = qaid
+        match_result.qnid = qnid
+        match_result.daid_list = daid_list_
+        match_result.dnid_list = dnid_list_
+        match_result._update_daid_index()
+        match_result._update_unique_nid_index()
+
+        grouped_annot_scores = vt.apply_grouping(annot_scores, match_result.name_groupxs)
+        name_scores = np.array([np.sum(dists) for dists in grouped_annot_scores])
+        match_result.set_cannonical_name_score(annot_scores, name_scores)
+        yield match_result
+
+
 class PieRequest(dt.base.VsOneSimilarityRequest):
-    _symmetric = False
+    _symmetric = True
     _tablename = 'Pie'
+
+    @ut.accepts_scalar_input
+    def get_fmatch_overlayed_chip(request, aid_list, overlay=True, config=None):
+        depc = request.depc
+        ibs = depc.controller
+        chips = ibs.get_annot_chips(aid_list)
+        return chips
+
+    def render_single_result(request, cm, aid, **kwargs):
+        # HACK FOR WEB VIEWER
+        overlay = kwargs.get('draw_fmatches')
+        chips = request.get_fmatch_overlayed_chip(
+            [cm.qaid, aid], overlay=overlay, config=request.config
+        )
+        out_img = vt.stack_image_list(chips)
+        return out_img
+
+    def postprocess_execute(request, parent_rowids, result_list):
+        qaid_list, daid_list = list(zip(*parent_rowids))
+        score_list = ut.take_column(result_list, 0)
+        depc = request.depc
+        config = request.config
+        cm_list = list(get_match_results(depc, qaid_list, daid_list, score_list, config))
+        return cm_list
+
+    def execute(request, *args, **kwargs):
+        kwargs['use_cache'] = False
+        result_list = super(PieRequest, request).execute(*args, **kwargs)
+        qaids = kwargs.pop('qaids', None)
+        if qaids is not None:
+            result_list = [result for result in result_list if result.qaid in qaids]
+        return result_list
 
 
 @register_preproc_annot(
@@ -309,7 +387,7 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
 
     # TODO: double-check config_path arg below is right vis à vis depc stuff
     name_dist_dicts = ibs.pie_predict_light(
-        qaid, daids, config_path=config['config_path']
+        qaid, daids, config_path=config['config_path'], n_results=1000
     )
 
     # TODO: below funcs
@@ -317,11 +395,12 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
     aid_score_list = aid_scores_from_name_scores(ibs, name_score_dicts, daids)
 
     for qaid, daid, daid_score in zip(qaid_list, daid_list, aid_score_list):
-        yield daid_score
+        yield (daid_score,)
 
 
 def distance_to_score(distance):
-    score = 1 / (1 + distance)
+    # score = 1 / (1 + distance)
+    score = np.exp(-distance / 2.0)
     return score
 
 
@@ -358,7 +437,7 @@ def aid_scores_from_name_scores(ibs, name_score_dicts, daid_list):
 
 
 @register_ibs_method
-def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
+def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, n_results=10):
     r"""
     Matches an annotation using PIE, by calling PIE's k-means distance measure on PIE embeddings.
 
@@ -410,7 +489,7 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
 
     from .predict import pred_light
 
-    ans = pred_light(query_emb, db_embs, db_labels, config_path)
+    ans = pred_light(query_emb, db_embs, db_labels, config_path, n_results)
     return ans
 
 
