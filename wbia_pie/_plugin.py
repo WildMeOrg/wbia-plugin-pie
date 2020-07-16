@@ -16,12 +16,12 @@ except Exception:
 
 if USE_WBIA:
     from wbia.control import controller_inject
-    from wbia.constants import ANNOTATION_TABLE
+    from wbia.constants import ANNOTATION_TABLE, UNKNOWN
     from wbia import dtool as dt
     import vtool as vt
 else:
     from ibeis.control import controller_inject
-    from ibeis.constants import ANNOTATION_TABLE
+    from ibeis.constants import ANNOTATION_TABLE, UNKNOWN
     import dtool as dt
     import vtool as vt
 
@@ -498,11 +498,11 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, n_resul
 def _db_labels_for_pie(ibs, daid_list):
     db_labels = ibs.get_annot_name_texts(daid_list)
     db_auuids = ibs.get_annot_semantic_uuids(daid_list)
-    noname = ibs.constants.UNKNOWN
     # later we must know which db_labels are for single auuids, hence prefix
-    db_auuids = [noname + str(auuid) for auuid in db_auuids]
-    db_labels = [lab if lab is not noname else auuid
-                 for lab, auuid in zip(db_labels, db_auuids)]
+    db_auuids = [UNKNOWN + str(auuid) for auuid in db_auuids]
+    db_labels = [
+        lab if lab is not UNKNOWN else auuid for lab, auuid in zip(db_labels, db_auuids)
+    ]
     db_labels = np.array(db_labels)
     return db_labels
 
@@ -663,6 +663,7 @@ def subset_with_resights(ibs, aid_list, n=3):
 
 def _count_dict(item_list):
     from collections import defaultdict
+
     count_dict = defaultdict(int)
     for item in item_list:
         count_dict[item] += 1
@@ -673,11 +674,12 @@ def subset_with_resights_range(ibs, aid_list, min_sights=3, max_sights=10):
     name_to_aids = _name_dict(ibs, aid_list)
     final_aids = []
     import random
+
     for name, aids in name_to_aids.items():
         if len(aids) < min_sights:
             continue
         elif len(aids) <= max_sights:
-            final_aids += (aids)
+            final_aids += aids
         else:
             final_aids += sorted(random.sample(aids, max_sights))
     return final_aids
@@ -688,7 +690,9 @@ def pie_new_accuracy(ibs, aid_list, min_sights=3, max_sights=10):
     aids = subset_with_resights_range(ibs, aid_list, min_sights, max_sights)
     ranks = ibs.pie_mass_accuracy(aids)
     accuracy = ibs.accuracy_at_k(ranks)
-    print('Accuracy at k for annotations with %s-%s sightings:' % (min_sights, max_sights))
+    print(
+        'Accuracy at k for annotations with %s-%s sightings:' % (min_sights, max_sights)
+    )
     print(accuracy)
     return accuracy
 
@@ -696,12 +700,11 @@ def pie_new_accuracy(ibs, aid_list, min_sights=3, max_sights=10):
 def _name_dict(ibs, aid_list):
     names = ibs.get_annot_name_rowids(aid_list)
     from collections import defaultdict
+
     name_aids = defaultdict(list)
     for aid, name in zip(aid_list, names):
         name_aids[name].append(aid)
     return name_aids
-
-
 
 
 def _invert_dict(d):
