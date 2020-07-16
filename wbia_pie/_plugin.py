@@ -18,10 +18,12 @@ if USE_WBIA:
     from wbia.control import controller_inject
     from wbia.constants import ANNOTATION_TABLE
     from wbia import dtool as dt
+    import vtool as vt
 else:
     from ibeis.control import controller_inject
     from ibeis.constants import ANNOTATION_TABLE
     import dtool as dt
+    import vtool as vt
 
 
 (print, rrr, profile) = ut.inject2(__name__)
@@ -282,9 +284,112 @@ class PieConfig(dt.Config):  # NOQA
         ]
 
 
+def get_match_results(depc, qaid_list, daid_list, score_list, config):
+    """ converts table results into format for ipython notebook """
+    # qaid_list, daid_list = request.get_parent_rowids()
+    # score_list = request.score_list
+    # config = request.config
+
+    unique_qaids, groupxs = ut.group_indices(qaid_list)
+    # grouped_qaids_list = ut.apply_grouping(qaid_list, groupxs)
+    grouped_daids = ut.apply_grouping(daid_list, groupxs)
+    grouped_scores = ut.apply_grouping(score_list, groupxs)
+
+    ibs = depc.controller
+    unique_qnids = ibs.get_annot_nids(unique_qaids)
+
+    # scores
+    _iter = zip(unique_qaids, unique_qnids, grouped_daids, grouped_scores)
+    for qaid, qnid, daids, scores in _iter:
+        dnids = ibs.get_annot_nids(daids)
+
+        # Remove distance to self
+        annot_scores = np.array(scores)
+        daid_list_ = np.array(daids)
+        dnid_list_ = np.array(dnids)
+
+        is_valid = daid_list_ != qaid
+        daid_list_ = daid_list_.compress(is_valid)
+        dnid_list_ = dnid_list_.compress(is_valid)
+        annot_scores = annot_scores.compress(is_valid)
+
+        # Hacked in version of creating an annot match object
+        match_result = wbia.AnnotMatch()
+        match_result.qaid = qaid
+        match_result.qnid = qnid
+        match_result.daid_list = daid_list_
+        match_result.dnid_list = dnid_list_
+        match_result._update_daid_index()
+        match_result._update_unique_nid_index()
+
+        grouped_annot_scores = vt.apply_grouping(annot_scores, match_result.name_groupxs)
+        name_scores = np.array([np.sum(dists) for dists in grouped_annot_scores])
+        match_result.set_cannonical_name_score(annot_scores, name_scores)
+        yield match_result
+
+
 class PieRequest(dt.base.VsOneSimilarityRequest):
-    _symmetric = False
+    _symmetric = True
     _tablename = 'Pie'
+
+    def overlay_outline(request, chip, outline, edge_color=(255, 0, 0)):
+        import cv2
+
+        scale = request.config.curvrank_scale
+
+        chip_ = np.copy(chip)
+        chip_ = cv2.resize(chip_, dsize=None, fx=scale, fy=scale)
+        h, w = chip_.shape[:2]
+
+        if outline is not None:
+            for y, x in outline:
+                if x < 0 or w < h or y < 0 or h < y:
+                    continue
+                cv2.circle(chip_, (x, y), 5, edge_color, thickness=-1)
+
+        return chip_
+
+    @ut.accepts_scalar_input
+    def get_fmatch_overlayed_chip(request, aid_list, overlay=True, config=None):
+        depc = request.depc
+        chips = depc.get('localization', aid_list, 'localized_img', config=request.config)
+        if overlay:
+            outlines = depc.get('outline', aid_list, 'outline', config=request.config)
+        else:
+            outlines = [None] * len(chips)
+
+        overlay_chips = [
+            request.overlay_outline(chip, outline)
+            for chip, outline in zip(chips, outlines)
+        ]
+        return overlay_chips
+
+    def render_single_result(request, cm, aid, **kwargs):
+        # HACK FOR WEB VIEWER
+        overlay = kwargs.get('draw_fmatches')
+        chips = request.get_fmatch_overlayed_chip(
+            [cm.qaid, aid], overlay=overlay, config=request.config
+        )
+        import vtool as vt
+
+        out_img = vt.stack_image_list(chips)
+        return out_img
+
+    def postprocess_execute(request, parent_rowids, result_list):
+        qaid_list, daid_list = list(zip(*parent_rowids))
+        score_list = ut.take_column(result_list, 0)
+        depc = request.depc
+        config = request.config
+        cm_list = list(get_match_results(depc, qaid_list, daid_list, score_list, config))
+        return cm_list
+
+    def execute(request, *args, **kwargs):
+        kwargs['use_cache'] = False
+        result_list = super(PieRequest, request).execute(*args, **kwargs)
+        qaids = kwargs.pop('qaids', None)
+        if qaids is not None:
+            result_list = [result for result in result_list if result.qaid in qaids]
+        return result_list
 
 
 @register_preproc_annot(
