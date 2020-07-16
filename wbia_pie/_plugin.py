@@ -439,7 +439,7 @@ def aid_scores_from_name_scores(ibs, name_score_dicts, daid_list):
 
 
 @register_ibs_method
-def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, n_results=10):
+def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, n_results=100):
     r"""
     Matches an annotation using PIE, by calling PIE's k-means distance measure on PIE embeddings.
 
