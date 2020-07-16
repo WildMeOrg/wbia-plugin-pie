@@ -385,11 +385,9 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
     assert len(qaids) == 1
     qaid = qaids[0]
 
-    ut.embed()
-
     # TODO: double-check config_path arg below is right vis à vis depc stuff
     name_dist_dicts = ibs.pie_predict_light(
-        qaid, daids, config_path=config['config_path'], n_results=1000
+        qaid, daids, config_path=config['config_path']
     )
 
     # TODO: below funcs
@@ -416,7 +414,7 @@ def distance_dicts_to_score_dicts(distance_dicts, conversion_func=distance_to_sc
 # We get a score per-name, but now we need to compute scores per-annotation. Done simply by averaging the name score over all of that name's annotations
 @register_ibs_method
 def aid_scores_from_name_scores(ibs, name_score_dicts, daid_list):
-    daid_name_list = _db_labels_for_pie(ibs, daid_list)
+    daid_name_list = list(_db_labels_for_pie(ibs, daid_list))
     # name_score_dict is a list of dicts; we want one dict with names ('label') as keys
     name_info_dict = {dct['label']: dct for dct in name_score_dicts}
     # calculate annotwise score by dividing namescore by # of annots with that name
