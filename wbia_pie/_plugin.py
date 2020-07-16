@@ -414,7 +414,7 @@ def distance_dicts_to_score_dicts(distance_dicts, conversion_func=distance_to_sc
 # We get a score per-name, but now we need to compute scores per-annotation. Done simply by averaging the name score over all of that name's annotations
 @register_ibs_method
 def aid_scores_from_name_scores(ibs, name_score_dicts, daid_list):
-    daid_name_list = ibs.get_annot_name_texts(daid_list)
+    daid_name_list = _db_labels_for_pie(ibs, daid_list)
     # name_score_dict is a list of dicts; we want one dict with names ('label') as keys
     name_info_dict = {dct['label']: dct for dct in name_score_dicts}
     # calculate annotwise score by dividing namescore by # of annots with that name
@@ -495,8 +495,8 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, n_resul
 
 def _db_labels_for_pie(ibs, aid_list):
     db_labels = ibs.get_annot_name_texts(daid_list)
-    noname = ibs.constants.UNKNOWN
     db_auuids = ibs.get_annot_semantic_uuids(daid_list)
+    noname = ibs.constants.UNKNOWN
     # later we must know which db_labels are for single auuids, hence prefix
     db_auuids = [noname + str(auuid) for auuid in db_auuids]
     db_labels = [lab if lab is not noname else auuid
