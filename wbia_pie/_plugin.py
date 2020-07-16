@@ -332,7 +332,7 @@ class PieRequest(dt.base.VsOneSimilarityRequest):
     _symmetric = True
     _tablename = 'Pie'
 
-    def overlay_outline(request, chip, outline, edge_color=(255, 0, 0)):
+    def overlay_outline(request, chip, edge_color=(255, 0, 0)):
         import cv2
 
         scale = request.config.curvrank_scale
@@ -341,27 +341,15 @@ class PieRequest(dt.base.VsOneSimilarityRequest):
         chip_ = cv2.resize(chip_, dsize=None, fx=scale, fy=scale)
         h, w = chip_.shape[:2]
 
-        if outline is not None:
-            for y, x in outline:
-                if x < 0 or w < h or y < 0 or h < y:
-                    continue
-                cv2.circle(chip_, (x, y), 5, edge_color, thickness=-1)
-
         return chip_
 
     @ut.accepts_scalar_input
     def get_fmatch_overlayed_chip(request, aid_list, overlay=True, config=None):
         depc = request.depc
-        chips = depc.get('localization', aid_list, 'localized_img', config=request.config)
-        if overlay:
-            outlines = depc.get('outline', aid_list, 'outline', config=request.config)
-        else:
-            outlines = [None] * len(chips)
+        ibs = depc.controller
+        chips = ibs.get_annot_chips(aid_list)
 
-        overlay_chips = [
-            request.overlay_outline(chip, outline)
-            for chip, outline in zip(chips, outlines)
-        ]
+        overlay_chips = [request.overlay_outline(chip) for chip in zip(chips)]
         return overlay_chips
 
     def render_single_result(request, cm, aid, **kwargs):
