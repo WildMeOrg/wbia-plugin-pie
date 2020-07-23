@@ -42,6 +42,7 @@ _DEFAULT_CONFIG_DICT = {'config_path': _DEFAULT_CONFIG}
 
 MODEL_URLS = {
     'mobula_birostris': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
+    'mobula_alfredi': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
 }
 
