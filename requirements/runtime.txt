@@ -6,6 +6,6 @@ opencv-python == 3.4.10.35
 scikit-image
 scikit-learn
 scipy
-tensorflow == 1.8
+tensorflow == 1.15.2
 # wbia
 # wbia-utool
