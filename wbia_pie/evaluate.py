@@ -7,13 +7,13 @@ matplotlib.use('Agg')
 import numpy as np
 from datetime import datetime
 
-from model.triplet import TripletLoss
-from model.siamese import Siamese
-from model.triplet_pose_model import TripletLossPoseInv
-from utils.utils import print_nested, save_res_csv, export_emb
-from utils.preprocessing import read_dataset, analyse_dataset, split_classes
-from evaluation.evaluate_pairs import evaluate_pairs
-from evaluation.evaluate_accuracy import evaluate_1_vs_all
+from .model.triplet import TripletLoss
+from .model.siamese import Siamese
+from .model.triplet_pose_model import TripletLossPoseInv
+from .utils.utils import print_nested, save_res_csv, export_emb
+from .utils.preprocessing import read_dataset, analyse_dataset, split_classes
+from .evaluation.evaluate_pairs import evaluate_pairs
+from .evaluation.evaluate_accuracy import evaluate_1_vs_all
 
 argparser = argparse.ArgumentParser(description='Evaluate model on any dataset')
 
@@ -28,27 +28,31 @@ argparser.add_argument(
 )
 
 
-def _main_(args):
+def evaluate(config_path, split_num=-1, mode='all'):
 
     ###############################
     #  Open config with parameters
     ###############################
 
-    config_path = args.conf
+    plugin_folder = os.path.dirname(os.path.realpath(__file__))
+    if not os.path.isabs(config_path):
+        config_path = os.path.join(plugin_folder, config_path)
+
     with open(config_path) as config_buffer:
         config = json.loads(config_buffer.read())
-    split_num = args.split_num
-    mode = args.mode
 
     # Define folder for experiment
-    exp_folder = os.path.join(config['train']['exp_dir'], config['train']['exp_id'])
+    exp_folder = os.path.join(plugin_folder, config['train']['exp_dir'], config['train']['exp_id'])
     if split_num >= 0:
         exp_folder = exp_folder + '-split-' + str(split_num)
 
     # Redirect output as per config
     FULL_PRINT_LOG = os.path.join(exp_folder, 'full_print_output.log')
     if config['general']['stdout-file']:
+        print("Printing remaining logs to %s" % FULL_PRINT_LOG)
         sys.stdout = open(FULL_PRINT_LOG, 'a+')
+
+    print("Printing eval at %s" % datetime.now())
 
     print(
         'Date: {} / EVALUATION of experiment id: {}'.format(
@@ -62,15 +66,16 @@ def _main_(args):
     ###############################
     #   Get test set and labels
     ###############################
-
+    train_set_dir = os.path.join(plugin_folder, config['data']['train_image_folder'])
     # Get test set if exists, otherwise split train set
     if os.path.exists(config['evaluate']['test_set']):
-        print('Loading test set from {}'.format(config['evaluate']['test_set']))
+        test_set_dir = os.path.join(plugin_folder, config['evaluate']['test_set'])
+        print('Loading test set from {}'.format(test_set_dir))
         test_imgs, test_names, _, files_test = read_dataset(
-            config['evaluate']['test_set'], original_labels=True, return_filenames=True
+            test_set_dir, original_labels=True, return_filenames=True
         )
         train_imgs, train_names, _, files_train = read_dataset(
-            config['data']['train_image_folder'],
+            train_set_dir,
             original_labels=True,
             return_filenames=True,
         )
@@ -86,13 +91,10 @@ def _main_(args):
         files_test = np.array(files_test)
 
     else:
-        print(
-            'Loading validation split from {}'.format(
-                config['data']['train_image_folder']
-            )
-        )
+
+        print('Loading validation split from {}'.format(train_set_dir))
         imgs, labels, lbl2names, filenames = read_dataset(
-            config['data']['train_image_folder'], return_filenames=True
+            train_set_dir, return_filenames=True
         )
         train_imgs, train_labels, test_imgs, test_labels, mask_train = split_classes(
             imgs,
@@ -228,9 +230,10 @@ def _main_(args):
     result['far'] = round(far, 3)
     result['auc'] = round(auc, 3)
 
+    print("Saving result csv to %s" % EVAL_LOG)
     save_res_csv(result, EVAL_LOG)
 
 
 if __name__ == '__main__':
     args = argparser.parse_args()
-    _main_(args)
+    evaluate(args.conf, args.split_num, args.mode)

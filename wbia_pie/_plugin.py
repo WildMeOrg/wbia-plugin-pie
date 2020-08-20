@@ -4,6 +4,7 @@ import utool as ut
 import numpy as np
 import os
 import json
+import shutil
 
 try:
     import wbia
@@ -575,7 +576,7 @@ def pie_annot_info_dir(aid_list):
     return output_dir
 
 
-def _write_embeddings_csv(embeddings, fname):
+def _write_embeddings_csv(embeddings, fname, base_config_path=_DEFAULT_CONFIG):
     ncols = len(embeddings[0])
     header = ['emb_' + str(i) for i in range(ncols)]
     header = ','.join(header)
@@ -622,6 +623,172 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
     print('Distances are all within tolerance of %s' % dist_tolerance)
 
 
+
+# Scripts `train.py` and `evaluate.py` have been used to train and evaluate a network configuration specified in a config file.
+# python train.py -c configs/manta.json
+
+@register_ibs_method
+def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG):
+    # TODO: do we change the config file?
+    # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
+
+    with open(base_config_path, 'r') as f:
+        config = json.load(f)
+
+    _prepare_training_images(ibs, training_aids, config)
+
+    from .train import train
+    import datetime
+    print("%s: about to train" % datetime.datetime.now())
+    ans = train(config)
+    print("%s: done training" % datetime.datetime.now())
+    return ans
+
+
+@register_ibs_method
+def pie_evaluate(ibs, config_path=_DEFAULT_CONFIG):
+    # TODO: do we change the config file?
+    # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
+    from .evaluate import evaluate
+    import datetime
+    print("%s: about to evaluate" % datetime.datetime.now())
+    ans = evaluate(config_path)
+    print("%s: done evaluating" % datetime.datetime.now())
+    return ans
+
+
+def _prepare_training_images(ibs, aid_list, pie_config):
+    ## prepare training images directory
+    target_dir = pie_config['data']['train_image_folder']
+    # if target_dir is a relative path, make it absolute relative this plugin directory
+    if not os.path.isabs(target_dir):
+        plugin_folder = os.path.dirname(os.path.realpath(__file__))
+        target_dir = os.path.join(plugin_folder, target_dir)
+
+    # copy resized annot chips into name-based subfolders
+    names = ibs.get_annot_name_texts(aid_list)
+    chip_paths = pie_annot_training_chip_fpaths(ibs, aid_list, pie_config)
+    for (aid,name,fpath) in zip(aid_list, names, chip_paths):
+        name_dir = os.path.join(target_dir, name)
+        os.makedirs(name_dir, exist_ok=True)
+        shutil.copy(fpath, name_dir)
+
+
+def pie_annot_training_chip_fpaths(ibs, aid_list, pie_config):
+    width  = int(pie_config['model']['input_width'])
+    height = int(pie_config['model']['input_height'])
+
+    chip_config = {
+        'dim_size': (width, height),
+        'resize_dim': 'wh',
+        'ext': '.png', ## example images are .png
+    }
+
+    fpaths = ibs.get_annot_chip_fpath(aid_list, ensure=True, config2_=chip_config)
+    return fpaths
+
+
+@register_ibs_method
+def pie_rw_subset(ibs, aid_list, min_score=0.7, vpoint='left'):
+    names = ibs.get_annot_name_texts(aid_list)
+    views = ibs.get_annot_viewpoints(aid_list)
+    confs = ibs.get_annot_detect_confidence(aid_list)
+    # we want all the annots that have viewpoint not 'up' or None and do have a name (ie name_text!='____')
+
+    annot_subset = [aid for (aid, name, view, conf) in zip(aid_list, names, views, confs) if
+                    name != '____' and
+                    view == vpoint and
+                    conf >= min_score
+                    ]
+
+    # enforce range of sightings per name
+    annot_subset = ibs.subset_with_resights_range(annot_subset, 3, 1000)
+    names_subset = ibs.get_annot_name_texts(annot_subset)
+
+    # just wanna compute some name statistics
+    name_counts = _count_dict(names_subset)
+    name_hist = [name_counts[name] for name in name_counts.keys()]
+    name_hist = _count_dict(name_hist)
+    # print("name-sightings histogram:")
+    # print(name_hist)
+    num_names = len(set(names_subset))
+    annots_per_name = len(annot_subset) / num_names
+    # print("%s and up =============================" % min_score)
+    print('%s viewpoint, %s min_score: %s annots per name (%s names, %s annots)' % (vpoint, min_score,
+        '{:6.1f}'.format(annots_per_name), '{0:3}'.format(num_names),
+        '{0:3}'.format(len(annot_subset))))
+    return annot_subset
+
+
+def csv_to_dicts(fname):
+    import csv
+    dicts = []
+    with open(fname, 'r') as data:
+        for line in csv.DictReader(data):
+            dicts.append(line)
+    return dicts
+
+
+@register_ibs_method
+def pie_rw_subset_2(ibs, aid_list, min_sights=3, side="L"):
+    fname = os.path.join(_PLUGIN_FOLDER, 'rw/photosIDMapHead_L_R.csv')
+    csv_rows = csv_to_dicts(fname)
+    narw_im_names = [row['Encounter.MediaAsset'] for row in csv_rows]
+    narw_views = [row['Concat_ViewDirectionCode'] for row in csv_rows]
+    narw_image_to_viewcode = {im_name: view for (im_name, view) in zip(narw_im_names, narw_views)}
+    from collections import defaultdict  # so we can throw anything at image_to_viewcode without key errors
+    narw_image_to_viewcode = defaultdict(str, narw_image_to_viewcode)
+
+    ib_views = ibs.get_annot_viewpoints(aid_list)
+    ib_im_names = ibs.get_annot_image_names(aid_list)
+
+    # grab annots where viewpoints agree in both sources
+    # side_view and side are just two diff labels for same thing, but in two diff places
+    side_view = "left" if side == 'L' else "right"
+    good_annots = [aid for aid, view, im_name in zip(aid_list, ib_views, ib_im_names)
+                   if view == side_view and narw_image_to_viewcode[im_name] == side]
+    good_annots = ibs.subset_with_resights(good_annots, n=min_sights)
+    # just wanna compute some name statistics
+    good_names = ibs.get_annot_names(good_annots)
+    name_counts = _count_dict(good_names)
+    name_hist = [name_counts[name] for name in name_counts.keys()]
+    name_hist = _count_dict(name_hist)
+    print("name hist:")
+    print(name_hist)
+    num_names = len(set(good_names))
+    annots_per_name = len(good_annots) / num_names
+    # print("%s and up =============================" % min_score)
+    print('%s annots on %s side per name (%s names, %s annots)' % (
+        '{:6.1f}'.format(annots_per_name), side,
+        '{0:3}'.format(num_names), '{0:3}'.format(len(good_annots))))
+    return good_annots
+
+
+
+def pie_apply_names(ibs, aid_list):
+    names = ibs.get_annot_name_texts(aid_list)
+    nameless_aids = [aid for aid,name in zip(aid_list, names) if name == '____']
+
+    nameless_fnames = ibs.get_annot_image_paths(nameless_aids)
+    nameless_fnames = [os.path.split(fn)[1] for fn in nameless_fnames]
+
+    # load metadata file
+    import csv
+    csv_path = '/home/wildme/tmp/photosIDMap.csv'
+    with open(csv_path, "r") as f:
+        reader = csv.DictReader(f)
+        csv_dicts = [{k: v for k, v in row.items()} for row in csv.DictReader(f)]
+
+    fname_to_name = {row['ImageFile']: row['Name'] for row in csv_dicts}
+    fnames_with_names = set(fname_to_name.keys())
+    nameless_names = [fname_to_name[fn]
+                      if fn in fnames_with_names
+                      else '____'
+                      for fn in nameless_fnames
+                      ]
+    ibs.set_annot_name_texts(nameless_aids, nameless_names)
+
+
 def _pie_accuracy(ibs, qaid, daid_list):
     daids = daid_list.copy()
     daids.remove(qaid)
@@ -634,6 +801,15 @@ def _pie_accuracy(ibs, qaid, daid_list):
         rank = -1
     print('rank %s' % rank)
     return rank
+
+
+def _count_dict(item_list):
+    from collections import defaultdict, OrderedDict
+    count_dict = defaultdict(int)
+    for item in item_list:
+        count_dict[item] += 1
+    count_dict = OrderedDict(sorted(count_dict.items()))
+    return dict(count_dict)
 
 
 @register_ibs_method
@@ -662,16 +838,8 @@ def subset_with_resights(ibs, aid_list, n=3):
     return good_annots
 
 
-def _count_dict(item_list):
-    from collections import defaultdict
-
-    count_dict = defaultdict(int)
-    for item in item_list:
-        count_dict[item] += 1
-    return dict(count_dict)
-
-
-def subset_with_resights_range(ibs, aid_list, min_sights=3, max_sights=10):
+@register_ibs_method
+def subset_with_resights_range(ibs, aid_list, min_sights=3, max_sights=100):
     name_to_aids = _name_dict(ibs, aid_list)
     final_aids = []
     import random
@@ -682,8 +850,20 @@ def subset_with_resights_range(ibs, aid_list, min_sights=3, max_sights=10):
         elif len(aids) <= max_sights:
             final_aids += aids
         else:
-            final_aids += sorted(random.sample(aids, max_sights))
+            final_aids += random.sample(aids, max_sights)
+
+    final_aids.sort()
     return final_aids
+
+
+def _name_dict(ibs, aid_list):
+    names = ibs.get_annot_name_texts(aid_list)
+    from collections import defaultdict
+
+    name_aids = defaultdict(list)
+    for aid, name in zip(aid_list, names):
+        name_aids[name].append(aid)
+    return name_aids
 
 
 @register_ibs_method
@@ -696,16 +876,6 @@ def pie_new_accuracy(ibs, aid_list, min_sights=3, max_sights=10):
     )
     print(accuracy)
     return accuracy
-
-
-def _name_dict(ibs, aid_list):
-    names = ibs.get_annot_name_rowids(aid_list)
-    from collections import defaultdict
-
-    name_aids = defaultdict(list)
-    for aid, name in zip(aid_list, names):
-        name_aids[name].append(aid)
-    return name_aids
 
 
 def _invert_dict(d):

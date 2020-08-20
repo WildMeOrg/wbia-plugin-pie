@@ -2,7 +2,8 @@
 import tensorflow as tf
 import keras.backend as K
 
-from utils.tensorflow_losses import triplet_semihard_loss
+
+from tensorflow_losses import triplet_semihard_loss
 
 
 def triplet_loss_mult(y_true, y_preds, margin=0.5, n_poses=4, n_imgs=40):

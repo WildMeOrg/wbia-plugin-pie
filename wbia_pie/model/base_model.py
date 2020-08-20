@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import os
 import numpy as np
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+
 from keras.models import Model
 
 import sys
@@ -88,6 +91,8 @@ class BaseModel(object):
 
     def backend_model(self):
         """ Model to obtain features from a specific layer of feature extractor."""
+        import utool as ut
+        ut.embed()
         self.backend_model = Model(
             inputs=self.feature_extractor.get_input_at(0),
             outputs=self.feature_extractor.layers[self.connect_layer].get_output_at(0),

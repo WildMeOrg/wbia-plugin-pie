@@ -9,7 +9,7 @@ from keras_preprocessing.image.affine_transformations import apply_affine_transf
 import sys
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-from utils.utils import rgb2gray
+from utils import rgb2gray
 
 
 class BatchGenerator:
