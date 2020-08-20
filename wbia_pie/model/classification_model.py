@@ -6,7 +6,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from base_model import BaseModel
-from utils.utils import plot_model_loss_acc_csv
+from ..utils.utils import plot_model_loss_acc_csv
 
 
 class Classification(BaseModel):

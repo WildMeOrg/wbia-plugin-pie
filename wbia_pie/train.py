@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-import argparse, os, sys, json
+import os
+import argparse
+import json
+import sys
 import matplotlib
 
 matplotlib.use('Agg')
@@ -8,23 +11,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 from math import ceil
 from datetime import datetime
+
+# trying to fix train bug
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+
 from keras.preprocessing.image import ImageDataGenerator
 import keras.backend as K
 from keras.utils import to_categorical
 
-from model.triplet import TripletLoss
-from model.siamese import Siamese
-from model.triplet_pose_model import TripletLossPoseInv
-from model.classification_model import Classification
-from utils.batch_generators import BatchGenerator, PairsImageDataGenerator
-from utils.preprocessing import (
+from .model.triplet import TripletLoss
+from .model.siamese import Siamese
+from .model.triplet_pose_model import TripletLossPoseInv
+from .model.classification_model import Classification
+from .utils.batch_generators import BatchGenerator, PairsImageDataGenerator
+from .utils.preprocessing import (
     read_dataset,
     analyse_dataset,
     split_classes,
     split_classification,
 )
-from utils.utils import print_nested, save_res_csv
-from evaluation.evaluate_accuracy import evaluate_1_vs_all
+from .utils.utils import print_nested, save_res_csv
+from .evaluation.evaluate_accuracy import evaluate_1_vs_all
 
 argparser = argparse.ArgumentParser(
     description='Train and validate a model on any dataset'
@@ -42,23 +50,18 @@ argparser.add_argument(
 )
 
 
-def _main_(args):
+def train(config, split_num=-1):
 
     # Record start time:
     startTime = datetime.now()
 
     ###############################
-    #  Read config with parameters and command line params
-    ###############################
-    config_path = args.conf
-    with open(config_path) as config_buffer:
-        config = json.loads(config_buffer.read())
-    split_num = args.split_num
-
-    ###############################
     #  Create folders for logs
     ###############################
-    exp_folder = os.path.join(config['train']['exp_dir'], config['train']['exp_id'])
+    plugin_folder = os.path.dirname(os.path.realpath(__file__))
+    # note: below line saves training log inside plugin folder
+    exp_folder = os.path.join(plugin_folder, config['train']['exp_dir'], config['train']['exp_id'])
+
     if split_num >= 0:
         exp_folder = exp_folder + '-split-' + str(split_num)
     if not os.path.exists(exp_folder):
@@ -68,9 +71,9 @@ def _main_(args):
     #  Redirect print output to logs
     ###############################
     FULL_PRINT_LOG = os.path.join(exp_folder, 'full_print_output.log')
-
     if config['general']['stdout-file']:
-        sys.stdout = open(FULL_PRINT_LOG, 'a+')
+        print('Sending subsequent printouts to %s' % FULL_PRINT_LOG)
+        # sys.stdout = open(FULL_PRINT_LOG, 'a+')
     print('=' * 40)
     print(
         'Date: {} / Experiment id: {}'.format(datetime.now(), config['train']['exp_id'])
@@ -106,7 +109,7 @@ def _main_(args):
             valid_labels = to_categorical(valid_labels)
     else:
         print('No test set. Splitting train set...')
-        imgs, labels, label_dict = read_dataset(config['data']['train_image_folder'])
+        imgs, labels, label_dict = read_dataset(os.path.join(plugin_folder, config['data']['train_image_folder']))
         print('Label encoding: ', label_dict)
         if config['model']['type'] in ('TripletLoss', 'TripletPose', 'Siamese'):
             train_imgs, train_labels, valid_imgs, valid_labels = split_classes(
@@ -359,7 +362,7 @@ def _main_(args):
             # Collect data for logs
             result = dict()
             result['date_time'] = datetime.now()
-            result['config'] = config_path
+            result['config'] = config
             result['experiment_id'] = exp_folder
             result['iteration_time'] = iterationTime
             result['images'] = config['data']['train_image_folder']
@@ -393,6 +396,14 @@ def _main_(args):
     mymodel.model.save_weights(TEMP_WEIGHTS)
 
 
-if __name__ == '__main__':
+if __name__ == '_train_':
+    ###############################
+    #  Read config with parameters and command line params
+    ###############################
     args = argparser.parse_args()
-    _main_(args)
+    config_path = args.conf
+    with open(config_path) as config_buffer:
+        config = json.loads(config_buffer.read())
+    split_num = args.split_num
+
+    train(config, split_num)

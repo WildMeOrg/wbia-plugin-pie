@@ -143,6 +143,8 @@ def get_eval_set_one_class(train, train_lbl, test, test_lbl, move_to_db=1):
     query_list = []
     query_lbl_list = []
 
+    # import utool as ut
+    # ut.embed()
     for label in unique_lbl:
         idx_to_db = np.random.choice(
             np.where(test_lbl == label)[0], size=move_to_db, replace=False
