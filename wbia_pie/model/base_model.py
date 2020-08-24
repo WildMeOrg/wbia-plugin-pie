@@ -15,6 +15,7 @@ from backend import (
     VGG16Feature,
     ResNet50Feature,
     MobileNetV2Feature,
+    DenseNet201Feature,
 )
 from backend import InceptionResNetV2Feature
 from utils import make_batches
@@ -75,9 +76,11 @@ class BaseModel(object):
             self.backend_class = DummyNetFeature(self.input_shape, self.weights)
         elif self.backend == 'MobileNetV2':
             self.backend_class = MobileNetV2Feature(self.input_shape, self.weights)
+        elif self.backend == 'DenseNet201':
+            self.backend_class = DenseNet201Feature(self.input_shape, self.weights)
         else:
             raise Exception(
-                'Architecture is not supported! Use only MobileNet, VGG16, ResNet50, and Inception3.'
+                'Architecture is not supported! Use only MobileNet, VGG16, ResNet50, DenseNet201, and Inception3.'
             )
 
         self.feature_extractor = self.backend_class.feature_extractor
