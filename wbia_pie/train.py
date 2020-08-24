@@ -206,11 +206,11 @@ def train(config, split_num=-1):
     elif config['train']['aug_rate'] == 'right-whale':
         gen_args = dict(
             rotation_range=15,
-            width_shift_range=0.1,
-            height_shift_range=0.1,
+            width_shift_range=0.15,
+            height_shift_range=0.15,
             # shear_range=0.1,
-            zoom_range=0.1,
-            channel_shift_range=0.1,
+            zoom_range=0.15,
+            channel_shift_range=0.15,
             data_format=K.image_data_format(),
             fill_mode='reflect',
             preprocessing_function=mymodel.backend_class.normalize,
@@ -219,11 +219,16 @@ def train(config, split_num=-1):
         raise Exception('Define augmentation rate in config!')
 
     if config['model']['type'] == 'TripletLoss':
-        gen = ImageDataGenerator(**gen_args)
+        train_gen = ImageDataGenerator(**gen_args)
+        val_gen_args = dict(
+            data_format=K.image_data_format(),
+            preprocessing_function=mymodel.backend_class.normalize,
+        )
+        val_gen = ImageDataGenerator(**val_gen_args)
         train_generator = BatchGenerator(
             train_imgs,
             train_labels,
-            aug_gen=gen,
+            aug_gen=train_gen,
             p=config['train']['cl_per_batch'],
             k=config['train']['sampl_per_class'],
             equal_k=config['train']['equal_k'],
@@ -232,7 +237,7 @@ def train(config, split_num=-1):
         valid_generator = BatchGenerator(
             valid_imgs,
             valid_labels,
-            # aug_gen=gen,
+            aug_gen=val_gen,
             p=config['train']['cl_per_batch'],
             k=config['train']['sampl_per_class'],
             equal_k=config['train']['equal_k'],

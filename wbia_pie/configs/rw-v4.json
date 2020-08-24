@@ -1,0 +1,76 @@
+{
+    "model" : {
+        "type":                 "TripletLoss",
+        "backend":              "DenseNet201",
+        "connect_layer":        -1,
+        "precomp_feat":         false,
+        "frontend":             "glob_pool",
+        "train_from_layer":     0,
+        "input_width":          448,
+        "input_height":         224,
+        "embedding_size":       64,
+        "_dropout_p":           0.3,
+        "loss":                 "semi_hard_triplet",
+	    "n_poses":               1,
+        "average":               false,
+        "rotate_poses":          false,
+        "two_outputs":           false,
+        "perspective":           false
+    },
+
+    "data": {
+        "_comment":             "Below used in train.py and evaluate.py",
+        "train_image_folder":   "data/rw-gpu",
+        "split_seed":            777
+
+    },
+
+    "train": {
+        "pretrained_weights":   "",
+        "batch_size":           128,
+        "batch_size_note":      "batch_size appears unusued, batches are sized cl_per_batch * sampl_per_class",
+        "learning_rate":        1e-3,
+        "nb_epochs":            800,
+        "log_step":             10,
+        "distance":             "l2",
+        "exp_dir":              "experiments",
+        "exp_id":               "rw-v4",
+        "debug":                false,
+        "aug_rate":            "right-whale",
+        "cl_per_batch":        24,
+        "sampl_per_class":     3,
+        "equal_k":             true,
+        "verbose":             1
+    },
+
+    "evaluate": {
+        "accuracy_at_k":        [1,2,3,4,5,6,7,8,9,10],
+        "move_to_dataset":      2,
+        "test_set":             "",
+        "n_eval_epochs":        20,
+        "far_target":           0.01
+
+    },
+
+    "general": {
+            "stdout-file":          true
+
+    },
+
+    "predict": {
+        "_comment":             "appears unused",
+        "db-emb":              ["examples/manta-demo/predict-emb"]
+
+    },
+
+    "prod": {
+        "prefix":              "manta-db",
+        "output":              "examples/manta-demo/db_localised",
+        "lfile":               "",
+        "embeddings":          "examples/manta-demo/db_embs",
+        "temp":                "examples/manta-demo"
+
+    }
+
+
+}
