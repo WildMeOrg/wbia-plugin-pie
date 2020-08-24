@@ -8,6 +8,12 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+import keras
+import tensorflow as tf
+gpu_options = tf.GPUOptions(allow_growth=True)
+sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+keras.backend.tensorflow_backend.set_session(sess)
+
 import numpy as np
 from math import ceil
 from datetime import datetime
@@ -30,13 +36,6 @@ from .utils.preprocessing import (
 )
 from .utils.utils import print_nested, save_res_csv
 from .evaluation.evaluate_accuracy import evaluate_1_vs_all
-
-
-from tensorflow import ConfigProto, Session
-config = ConfigProto()
-config.gpu_options.allow_growth = True
-K.set_session(Session(config=config))
-
 
 argparser = argparse.ArgumentParser(
     description='Train and validate a model on any dataset'
