@@ -305,9 +305,9 @@ def train(config, split_num=-1):
         mymodel.warm_up_train(
             train_gen=train_generator,
             valid_gen=valid_generator,
-            nb_epochs=1,
+            nb_epochs=10,
             batch_size=config['train']['batch_size'],
-            learning_rate=config['train']['learning_rate'] * 10,
+            learning_rate=config['train']['learning_rate'] * 2,
             steps_per_epoch=steps_per_epoch,
             distance=config['train']['distance'],
             saved_weights_name=SAVED_WEIGHTS,
