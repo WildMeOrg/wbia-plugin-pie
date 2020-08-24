@@ -31,6 +31,13 @@ from .utils.preprocessing import (
 from .utils.utils import print_nested, save_res_csv
 from .evaluation.evaluate_accuracy import evaluate_1_vs_all
 
+
+from tensorflow import ConfigProto, Session
+config = ConfigProto()
+config.gpu_options.allow_growth = True
+K.set_session(Session(config=config))
+
+
 argparser = argparse.ArgumentParser(
     description='Train and validate a model on any dataset'
 )
