@@ -15,7 +15,7 @@ from keras.layers import (
 from keras.applications.mobilenet_v2 import MobileNetV2
 from keras.applications.vgg16 import VGG16, preprocess_input
 from keras.applications.resnet50 import ResNet50
-from keras.applications.densenet import DenseNet201, preprocess_input as densenet_preprocess_input
+from keras.applications.densenet import DenseNet201, DenseNet121, preprocess_input as densenet_preprocess_input
 from keras.applications import InceptionResNetV2, DenseNet121, InceptionV3
 
 
@@ -160,7 +160,7 @@ class DenseNet201Feature(BaseFeatureExtractor):
     """ResNet50 model pretrained on Imagenet with the last pooling layer removed"""
 
     def __init__(self, input_shape, weights):
-        self.feature_extractor = DenseNet201(
+        self.feature_extractor = DenseNet121(
             input_shape=input_shape, include_top=False, weights=weights
         )
 

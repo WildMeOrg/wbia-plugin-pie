@@ -228,8 +228,8 @@ class BaseModel(object):
         print('Freezeing layers before warm-up training')
         for i in range(backend_model_len):
             self.top_model.layers[i].trainable = False
-        for layer in self.top_model.layers:
-            print(layer.name, layer.trainable)
+        # for layer in self.top_model.layers:
+            # print(layer.name, layer.trainable)
 
         # Compile the model
         self.compile_model(learning_rate)
