@@ -174,7 +174,7 @@ def train(config, split_num=-1):
         mymodel.load_weights(SAVED_WEIGHTS)
         warm_up_flag = False
     elif os.path.exists(PRETRAINED_WEIGHTS):
-        warm_up_flag == False
+        warm_up_flag = False
     else:
         print('No pre-trained weights are found')
         warm_up_flag = True

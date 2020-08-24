@@ -12,7 +12,7 @@ from keras.layers import (
     Dense,
     Lambda,
 )
-from keras.applications.mobilenet_v2 import MobileNetV2
+from keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input as mobilenetv2_preprocess_input
 from keras.applications.vgg16 import VGG16, preprocess_input
 from keras.applications.resnet50 import ResNet50
 from keras.applications.densenet import DenseNet201, preprocess_input as densenet_preprocess_input
@@ -111,9 +111,16 @@ class MobileNetV2Feature(BaseFeatureExtractor):
         )
 
     def normalize(self, image):
-        image = image / 128.0
-        image = image - 1.0
-        return image.astype(np.float32)
+        # image = image / 128.0
+        # image = image - 1.0
+        # return image.astype(np.float32)
+
+        image = image[..., ::-1]
+        image = image.astype('float32')
+
+        image = mobilenetv2_preprocess_input(image)
+
+        return image
 
 
 class VGG16Feature(BaseFeatureExtractor):
@@ -126,7 +133,7 @@ class VGG16Feature(BaseFeatureExtractor):
 
     def normalize(self, image):
         image = image[..., ::-1]
-        image = image.astype('float')
+        image = image.astype('float32')
 
         image[..., 0] -= 103.939
         image[..., 1] -= 116.779
@@ -145,7 +152,7 @@ class ResNet50Feature(BaseFeatureExtractor):
 
     def normalize(self, image):
         image = image[..., ::-1]
-        image = image.astype('float')
+        image = image.astype('float32')
 
         image[..., 0] -= 103.939
         image[..., 1] -= 116.779
