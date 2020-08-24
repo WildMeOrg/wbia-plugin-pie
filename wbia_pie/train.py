@@ -13,9 +13,6 @@ from math import ceil
 from datetime import datetime
 
 # trying to fix train bug
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
-
 from keras.preprocessing.image import ImageDataGenerator
 import keras.backend as K
 from keras.utils import to_categorical
@@ -206,6 +203,18 @@ def train(config, split_num=-1):
             fill_mode='nearest',
             preprocessing_function=mymodel.backend_class.normalize,
         )
+    elif config['train']['aug_rate'] == 'right-whale':
+        gen_args = dict(
+            rotation_range=15,
+            width_shift_range=0.1,
+            height_shift_range=0.1,
+            # shear_range=0.1,
+            zoom_range=0.1,
+            channel_shift_range=0.1,
+            data_format=K.image_data_format(),
+            fill_mode='reflect',
+            preprocessing_function=mymodel.backend_class.normalize,
+        )
     else:
         raise Exception('Define augmentation rate in config!')
 
@@ -218,11 +227,12 @@ def train(config, split_num=-1):
             p=config['train']['cl_per_batch'],
             k=config['train']['sampl_per_class'],
             equal_k=config['train']['equal_k'],
+            perspective=True,
         )
         valid_generator = BatchGenerator(
             valid_imgs,
             valid_labels,
-            aug_gen=gen,
+            # aug_gen=gen,
             p=config['train']['cl_per_batch'],
             k=config['train']['sampl_per_class'],
             equal_k=config['train']['equal_k'],
@@ -274,7 +284,7 @@ def train(config, split_num=-1):
     ###############################
     LOGS_FILE = os.path.join(exp_folder, 'history.csv')
     PLOT_FILE = os.path.join(exp_folder, 'plot.png')
-    ALL_EXP_LOG = os.path.join(config['train']['exp_dir'], 'experiments_all.csv')
+    ALL_EXP_LOG = os.path.join(exp_folder, 'experiments_all.csv')
 
     n_iter = ceil(config['train']['nb_epochs'] / config['train']['log_step'])
 
@@ -361,6 +371,7 @@ def train(config, split_num=-1):
 
             # Collect data for logs
             result = dict()
+            result['iteration'] = iteration
             result['date_time'] = datetime.now()
             result['config'] = config
             result['experiment_id'] = exp_folder
