@@ -15,6 +15,7 @@ from backend import (
     VGG16Feature,
     ResNet50Feature,
     MobileNetV2Feature,
+    DenseNet121Feature,
     DenseNet201Feature,
     # EfficientNetB2Feature,
 )
@@ -77,10 +78,12 @@ class BaseModel(object):
             self.backend_class = DummyNetFeature(self.input_shape, self.weights)
         elif self.backend == 'MobileNetV2':
             self.backend_class = MobileNetV2Feature(self.input_shape, self.weights)
+        elif self.backend == 'DenseNet121':
+            self.backend_class = DenseNet121Feature(self.input_shape, self.weights)
         elif self.backend == 'DenseNet201':
             self.backend_class = DenseNet201Feature(self.input_shape, self.weights)
-        elif self.backend == 'EfficientNetB2':
-            self.backend_class = EfficientNetB2Feature(self.input_shape, self.weights)
+        # elif self.backend == 'EfficientNetB2':
+        #     self.backend_class = EfficientNetB2Feature(self.input_shape, self.weights)
         else:
             raise Exception(
                 'Architecture is not supported! Use only MobileNet, VGG16, ResNet50, DenseNet201, and Inception3.'
