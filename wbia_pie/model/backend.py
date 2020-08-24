@@ -16,7 +16,7 @@ from keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input as mob
 from keras.applications.vgg16 import VGG16, preprocess_input
 from keras.applications.resnet50 import ResNet50
 from keras.applications.densenet import DenseNet201, preprocess_input as densenet_preprocess_input
-from keras.applications.efficientnet import EfficientNetB2, preprocess_input as efficientnetb2_preprocess_input
+# from keras.applications.efficientnet import EfficientNetB2, preprocess_input as efficientnetb2_preprocess_input
 from keras.applications import InceptionResNetV2, DenseNet121, InceptionV3
 
 
@@ -184,21 +184,21 @@ class DenseNet201Feature(BaseFeatureExtractor):
         return self.normalize(imgs)
 
 
-class EfficientNetB2Feature(BaseFeatureExtractor):
-    """ResNet50 model pretrained on Imagenet with the last pooling layer removed"""
+# class EfficientNetB2Feature(BaseFeatureExtractor):
+#     """ResNet50 model pretrained on Imagenet with the last pooling layer removed"""
 
-    def __init__(self, input_shape, weights):
-        self.feature_extractor = EfficientNetB2(
-            input_shape=input_shape, include_top=False, weights=weights
-        )
+#     def __init__(self, input_shape, weights):
+#         self.feature_extractor = EfficientNetB2(
+#             input_shape=input_shape, include_top=False, weights=weights
+#         )
 
-    def normalize(self, image):
-        image = image[..., ::-1]
-        image = image.astype('float32')
+#     def normalize(self, image):
+#         image = image[..., ::-1]
+#         image = image.astype('float32')
 
-        image = efficientnetb2_preprocess_input(image)
+#         image = efficientnetb2_preprocess_input(image)
 
-        return image
+#         return image
 
-    def preprocess_imgs(self, imgs):
-        return self.normalize(imgs)
+#     def preprocess_imgs(self, imgs):
+#         return self.normalize(imgs)
