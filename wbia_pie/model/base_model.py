@@ -16,7 +16,7 @@ from backend import (
     ResNet50Feature,
     MobileNetV2Feature,
     DenseNet201Feature,
-    EfficientNetB2Feature,
+    # EfficientNetB2Feature,
 )
 from backend import InceptionResNetV2Feature
 from utils import make_batches
