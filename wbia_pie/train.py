@@ -25,8 +25,8 @@ if gpus:
 
 import keras
 # import tensorflow as tf
-gpu_options = tf.GPUOptions(allow_growth=True)
-sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+gpu_options = tf.compat.v1.GPUOptions(allow_growth=True)
+sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=gpu_options))
 keras.backend.tensorflow_backend.set_session(sess)
 
 import numpy as np
