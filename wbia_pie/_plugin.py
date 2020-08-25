@@ -823,6 +823,172 @@ def filter_out_viewpoints(ibs, aid_list, bad_views=['up','right','front']):
                    if view not in bad_views]
     return good_annots
 
+@register_ibs_method
+def pie_rw_subset_3_jrp(ibs, aid_list, min_sights=3, side="L"):
+    import random
+
+    MIN_ANNOTS_PER_NAME = 5
+    MAX_ANNOTS_PER_NAME = 20
+    MIN_HEIGHT = 224
+    MIN_WIDTH = 448
+
+    _plugin_folder = '/data/jason.parham/code/wbia-plugin-pie/wbia_pie/'
+
+    fname = os.path.join(_plugin_folder, 'rw/photosIDMapHead_L_R.csv')
+    csv_rows = csv_to_dicts(fname)
+
+    image_ids   = ut.take_column(csv_rows, 'CatalogImageId')
+    image_names = ut.take_column(csv_rows, 'Encounter.MediaAsset')
+    directions0  = ut.take_column(csv_rows, 'Concat_ViewDirectionCode')
+    directions1 = ut.take_column(csv_rows, 'Concat_ViewDirectionCode1')
+    directions2 = ut.take_column(csv_rows, 'Concat_ViewDirectionCode2')
+    directions3 = ut.take_column(csv_rows, 'Concat_ViewDirectionCode3')
+    name_texts  = ut.take_column(csv_rows, 'MarkedIndividual.individualID')
+
+    image_ids_ = [os.path.splitext(image_name)[0] for image_name in image_names]
+    assert all([image_id == image_id_ for image_id, image_id_ in zip(image_ids, image_ids_)])
+    directions = list(zip(directions0, directions1, directions2, directions3))
+    directions = [
+        list(set(direction) - set(['']))
+        for direction in directions
+    ]
+    len_list = list(map(len, directions))
+    assert len_list.count(1) == len(len_list)
+    assert set(len_list) == set([1])
+    directions = ut.flatten(directions)
+    assert set(directions) == set(['L', 'R'])
+
+    image_ids = list(map(int, image_ids))
+    name_texts = list(map(int, name_texts))
+
+    assert len(image_ids) == len(name_texts)
+    assert len(image_ids) == len(directions)
+
+    zipped = zip(image_ids, name_texts, directions)
+    data_dict = {
+        image_id: {
+            'name': str(name).lower(),
+            'view': ('left' if direction == 'L' else 'right').lower()
+        }
+        for image_id, name, direction in zipped
+    }
+
+    gid_list = ibs.get_valid_gids()
+    image_uri_original_list = ibs.get_image_uris_original(gid_list)
+
+    gid_dict = {}
+    seen_image_id_set = set([])
+    for gid, image_uri_original in zip(gid_list, image_uri_original_list):
+        image_filename_original = os.path.split(image_uri_original)[1]
+        image_id_ = os.path.splitext(image_filename_original)[0]
+        image_id_ = int(image_id_)
+
+        if image_id_ in seen_image_id_set:
+            print('Already seen image_id = %r' % (image_id_, ))
+        data = data_dict.get(image_id_, None)
+        if data is None:
+            continue
+        gid_dict[gid] = data
+        seen_image_id_set.add(image_id_)
+
+    candidate_gid_list = []
+    candidate_name_list = []
+    for gid in gid_dict:
+        data = gid_dict[gid]
+        name = data.get('name')
+        view = data.get('view')
+        if view == 'left':
+            candidate_gid_list.append(gid)
+            candidate_name_list.append(name)
+
+    assert len(candidate_gid_list) == len(set(candidate_gid_list))
+    assert len(candidate_gid_list) == len(candidate_name_list)
+
+    candidate_aids_list = ibs.get_image_aids(candidate_gid_list)
+    # len_list = list(map(len, candidate_aids_list))
+
+    labeler_config = {
+        'labeler_algo': 'densenet',
+        'labeler_weight_filepath': 'right_whale_v0',
+    }
+    candidate_aid_list = ut.flatten(candidate_aids_list)
+    labeler_species_list = ibs.depc_annot.get_property('labeler', candidate_aid_list, 'species', config=labeler_config)
+    labeler_viewpoint_list = ibs.depc_annot.get_property('labeler', candidate_aid_list, 'viewpoint', config=labeler_config)
+    zipped = zip(candidate_aid_list, labeler_species_list, labeler_viewpoint_list)
+    labeler_dict = {
+        candidate_aid: {
+            'species': labeler_species,
+            'viewpoint': labeler_viewpoint,
+        }
+        for candidate_aid, labeler_species, labeler_viewpoint in zipped
+    }
+
+    candidate_name_dict = {}
+    zipped = zip(candidate_gid_list, candidate_aids_list, candidate_name_list)
+    for candidate_gid, candidate_aid_list, candidate_name in zipped:
+        if len(candidate_aid_list) == 1:
+            candidate_aid = candidate_aid_list[0]
+
+            candidate_bbox = ibs.get_annot_bboxes(candidate_aid)
+            xtl, ytl, w, h = candidate_bbox
+            if w < MIN_WIDTH:
+                continue
+            if h < MIN_HEIGHT:
+                continue
+
+            labeler_data = labeler_dict.get(candidate_aid, None)
+            if labeler_data is None:
+                continue
+            labeler_species = labeler_data.get('species')
+            labeler_viewpoint = labeler_data.get('viewpoint')
+            if labeler_species not in ['right_whale+head']:
+                continue
+            if labeler_viewpoint in ['up', 'right', 'front']:
+                continue
+
+            if candidate_name not in candidate_name_dict:
+                candidate_name_dict[candidate_name] = []
+            candidate_name_dict[candidate_name].append(candidate_aid)
+
+    final_aid_list = []
+    final_name_list = []
+    for name in candidate_name_dict:
+        candidate_name_aid_list = candidate_name_dict[name]
+        if len(candidate_name_aid_list) < MIN_ANNOTS_PER_NAME:
+            continue
+        random.shuffle(candidate_name_aid_list)
+        keep_annots = min(len(candidate_name_aid_list), MAX_ANNOTS_PER_NAME)
+        candidate_name_aid_list_ = candidate_name_aid_list[:keep_annots]
+        candidate_name_aid_list_ = sorted(candidate_name_aid_list_)
+        candidate_name_gid_list_ = ibs.get_annot_gids(candidate_name_aid_list_)
+        assert len(candidate_name_gid_list_) == len(set(candidate_name_gid_list_))
+
+        final_aid_list += candidate_name_aid_list_
+        final_name_list += [name] * len(candidate_name_aid_list_)
+
+    assert len(final_aid_list) == len(final_name_list)
+    assert len(final_aid_list) == len(set(final_aid_list))
+    final_gid_list = ibs.get_annot_gids(final_aid_list)
+    assert len(final_gid_list) == len(set(final_gid_list))
+
+    # existing_viewpoint_list = ibs.get_annot_viewpoints(final_aid_list)
+    existing_name_list = ibs.get_annot_names(final_aid_list)
+
+    flag_list = [
+        final_name == existing_name
+        for final_name, existing_name in zip(final_name_list, existing_name_list)
+    ]
+    assert sum(flag_list) == len(flag_list)
+
+    imageset_name = 'Jason Subset'
+    imageset_rowid, = ibs.get_imageset_imgsetids_from_text([imageset_name])
+    gid_list = ibs.get_valid_gids()
+    ibs.unrelate_images_and_imagesets(gid_list, [imageset_rowid] * len(gid_list))
+    ibs.set_image_imagesettext(final_gid_list, [imageset_name] * len(final_gid_list))
+
+    return final_aid_list
+
+
 def pie_apply_names(ibs, aid_list):
     names = ibs.get_annot_name_texts(aid_list)
     nameless_aids = [aid for aid,name in zip(aid_list, names) if name == '____']
