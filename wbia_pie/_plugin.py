@@ -766,6 +766,64 @@ def pie_rw_subset_2(ibs, aid_list, min_sights=3, side="L"):
     return good_annots
 
 
+@register_ibs_method
+def pie_rw_subset_3_drew(ibs, aid_list, min_sights=6, max_sights=20, side="L"):
+    fname = os.path.join(_PLUGIN_FOLDER, 'rw/photosIDMapHead_L_R.csv')
+    csv_rows = csv_to_dicts(fname)
+    narw_im_names = [row['Encounter.MediaAsset'] for row in csv_rows]
+    narw_views = [row['Concat_ViewDirectionCode'] for row in csv_rows]
+    narw_image_to_viewcode = {im_name: view for (im_name, view) in zip(narw_im_names, narw_views)}
+    from collections import defaultdict  # so we can throw anything at image_to_viewcode without key errors
+    narw_image_to_viewcode = defaultdict(str, narw_image_to_viewcode)
+    ib_im_names = ibs.get_annot_image_names(aid_list)
+    good_annots = [aid for aid, im_name in zip(aid_list, ib_im_names)
+                   if narw_image_to_viewcode[im_name] == side]
+
+    # because we trust these viewpoints
+    good_annots = filter_out_viewpoints(ibs, good_annots, bad_views=['up','right','front'])
+    good_annots = size_filter_aids(ibs, good_annots, min_width=448, min_height=224)
+    good_annots = only_single_annot_images(ibs, good_annots)
+    good_annots = ibs.subset_with_resights_range(good_annots, min_sights, max_sights)
+    # just wanna compute some name statistics
+    good_names = ibs.get_annot_names(good_annots)
+    name_counts = _count_dict(good_names)
+    name_hist = [name_counts[name] for name in name_counts.keys()]
+    name_hist = _count_dict(name_hist)
+    print("name hist:")
+    print(name_hist)
+    num_names = len(set(good_names))
+    annots_per_name = len(good_annots) / num_names
+    # print("%s and up =============================" % min_score)
+    print('%s annots on %s side per name (%s names, %s annots)' % (
+        '{:6.1f}'.format(annots_per_name), side,
+        '{0:3}'.format(num_names), '{0:3}'.format(len(good_annots))))
+    return good_annots
+
+
+def only_single_annot_images(ibs, aid_list):
+    im_names = ibs.get_annot_image_names(aid_list)
+    name_counts = _count_dict(im_names)
+    good_annots = [aid for (aid, im_name) in zip(aid_list, im_names)
+        if name_counts[im_name] == 1]
+    return good_annots
+
+
+def size_filter_aids(ibs, aid_list, min_width=448, min_height=224):
+    bboxes = ibs.get_annot_bboxes(aid_list)
+    widths = [bbox[2] for bbox in bboxes]
+    heights = [bbox[3] for bbox in bboxes]
+
+    good_aids = [aid for (aid, w, h) in zip(aid_list, widths, heights) if
+                 w >= min_width and h >= min_height]
+    return good_aids
+
+
+def filter_out_viewpoints(ibs, aid_list, bad_views=['up','right','front']):
+    bad_views = set(bad_views)
+    views = ibs.get_annot_viewpoints(aid_list)
+    good_annots = [aid for (aid, view) in zip(aid_list, views)
+                   if view not in bad_views]
+    return good_annots
 
 def pie_apply_names(ibs, aid_list):
     names = ibs.get_annot_name_texts(aid_list)
