@@ -253,7 +253,7 @@ class BaseModel(object):
             callbacks=[csv_logger],
             max_queue_size=32,
             workers=21,
-            use_multiprocessing=True,
+            use_multiprocessing=False,
         )
 
         self.top_model.save_weights(saved_weights_name)
@@ -314,7 +314,7 @@ class BaseModel(object):
             callbacks=[early_stop, checkpoint, csv_logger],
             max_queue_size=32,
             workers=21,
-            use_multiprocessing=True,
+            use_multiprocessing=False,
         )
 
     def precompute_features(self, imgs, batch_size):
