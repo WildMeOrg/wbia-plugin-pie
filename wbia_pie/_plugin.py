@@ -627,6 +627,7 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
 # Scripts `train.py` and `evaluate.py` have been used to train and evaluate a network configuration specified in a config file.
 # python train.py -c configs/manta.json
 
+
 @register_ibs_method
 def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG):
     # TODO: do we change the config file?
@@ -658,7 +659,7 @@ def pie_evaluate(ibs, config_path=_DEFAULT_CONFIG):
 
 
 def _prepare_training_images(ibs, aid_list, pie_config):
-    ## prepare training images directory
+    #  prepare training images directory
     target_dir = pie_config['data']['train_image_folder']
     # if target_dir is a relative path, make it absolute relative this plugin directory
     if not os.path.isabs(target_dir):
@@ -668,7 +669,7 @@ def _prepare_training_images(ibs, aid_list, pie_config):
     # copy resized annot chips into name-based subfolders
     names = ibs.get_annot_name_texts(aid_list)
     chip_paths = pie_annot_training_chip_fpaths(ibs, aid_list, pie_config)
-    for (aid,name,fpath) in zip(aid_list, names, chip_paths):
+    for (aid, name, fpath) in zip(aid_list, names, chip_paths):
         name_dir = os.path.join(target_dir, name)
         os.makedirs(name_dir, exist_ok=True)
         shutil.copy(fpath, name_dir)
@@ -681,7 +682,7 @@ def pie_annot_training_chip_fpaths(ibs, aid_list, pie_config):
     chip_config = {
         'dim_size': (width, height),
         'resize_dim': 'wh',
-        'ext': '.png', ## example images are .png
+        'ext': '.png',  ## example images are .png
     }
 
     fpaths = ibs.get_annot_chip_fpath(aid_list, ensure=True, config2_=chip_config)
@@ -826,15 +827,14 @@ def filter_out_viewpoints(ibs, aid_list, bad_views=['up','right','front']):
 @register_ibs_method
 def pie_rw_subset_3_jrp(ibs, aid_list, min_sights=3, side="L"):
     import random
+    random.seed(777)
 
     MIN_ANNOTS_PER_NAME = 5
     MAX_ANNOTS_PER_NAME = 20
     MIN_HEIGHT = 224
     MIN_WIDTH = 448
 
-    _plugin_folder = '/data/jason.parham/code/wbia-plugin-pie/wbia_pie/'
-
-    fname = os.path.join(_plugin_folder, 'rw/photosIDMapHead_L_R.csv')
+    fname = os.path.join(_PLUGIN_FOLDER, 'rw/photosIDMapHead_L_R.csv')
     csv_rows = csv_to_dicts(fname)
 
     image_ids   = ut.take_column(csv_rows, 'CatalogImageId')
@@ -1067,6 +1067,7 @@ def subset_with_resights_range(ibs, aid_list, min_sights=3, max_sights=100):
     name_to_aids = _name_dict(ibs, aid_list)
     final_aids = []
     import random
+    random.seed(777)
 
     for name, aids in name_to_aids.items():
         if len(aids) < min_sights:
