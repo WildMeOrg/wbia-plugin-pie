@@ -251,6 +251,9 @@ class BaseModel(object):
             validation_data=valid_gen,
             validation_steps=steps_per_epoch // 5 + 1,
             callbacks=[csv_logger],
+            max_queue_size=32,
+            workers=21,
+            use_multiprocessing=True,
         )
 
         self.top_model.save_weights(saved_weights_name)
@@ -309,6 +312,9 @@ class BaseModel(object):
             validation_data=valid_gen,
             validation_steps=steps_per_epoch // 5 + 1,
             callbacks=[early_stop, checkpoint, csv_logger],
+            max_queue_size=32,
+            workers=21,
+            use_multiprocessing=True,
         )
 
     def precompute_features(self, imgs, batch_size):
