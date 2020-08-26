@@ -232,10 +232,10 @@ def pie_preprocess(ibs, aid_list, config_path=_DEFAULT_CONFIG):
     output_dir = pie_preproc_dir(aid_list, config_path)
     label_file_path = os.path.join(output_dir, 'name_map.csv')
     label_file = ibs.pie_name_csv(aid_list, fpath=label_file_path)
-    img_path = ibs.imgdir
+    image_path = ibs.imagedir
     from .preproc_db import preproc
 
-    dbpath = preproc(img_path, config_path, lfile=label_file, output=output_dir)
+    dbpath = preproc(image_path, config_path, lfile=label_file, output=output_dir)
     return dbpath
 
 
@@ -347,8 +347,8 @@ class PieRequest(dt.base.VsOneSimilarityRequest):
         chips = request.get_fmatch_overlayed_chip(
             [cm.qaid, aid], overlay=overlay, config=request.config
         )
-        out_img = vt.stack_image_list(chips)
-        return out_img
+        out_image = vt.stack_image_list(chips)
+        return out_image
 
     def postprocess_execute(request, parent_rowids, result_list):
         qaid_list, daid_list = list(zip(*parent_rowids))
@@ -824,17 +824,140 @@ def filter_out_viewpoints(ibs, aid_list, bad_views=['up','right','front']):
                    if view not in bad_views]
     return good_annots
 
+
+def gradient_magnitude(arguments):
+    import numpy as np
+    import cv2
+
+    image_filepath, = arguments
+
+    image = cv2.imread(image_filepath)
+    image = image.astype(np.float32)
+
+    sobelx = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
+    sobely = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=3)
+    magnitude = np.sqrt(sobelx ** 2.0 + sobely ** 2.0)
+
+    result = {
+        'sum': np.sum(magnitude),
+        'mean': np.mean(magnitude),
+        'max': np.max(magnitude),
+    }
+    return result
+
+
+def background_mask_points(arguments):
+    import cv2
+    image_filepath, = arguments
+
+    margin = 8
+    k = 13
+    image = cv2.imread(image_filepath, 0)
+    image = image.astype(np.float32)
+    image[image < 32] = 0
+    # image[image > 0] = 255
+    kernel = np.ones((k, k), np.uint8)
+    image[:margin, :] = 0
+    image[-margin:, :] = 0
+    image[:, :margin] = 0
+    image[:, -margin:] = 0
+    image = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
+    image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
+    image = cv2.blur(image, (k, k))
+    image = np.around(image)
+    image[image < 32] = 0
+    image[image > 0] = 255
+
+    try:
+        image_x = np.sum(image, axis=0)
+        for index in range(len(image_x)):
+            if image_x[index] > 0:
+                start_x = index
+                break
+        start_y = int(np.around(np.mean(ut.flatten(np.argwhere(image[:, start_x] > 0)))))
+    except:
+        return None, None
+    try:
+        image_y = np.sum(image, axis=1)
+        for index in range(len(image_y)):
+            if image_y[index] > 0:
+                end_y = index
+                break
+        end_x = int(np.around(np.mean(ut.flatten(np.argwhere(image[end_y, :] > 0)))))
+    except:
+        return None, None
+
+    distance = np.sqrt((end_y - start_y) ** 2.0 + (end_x - start_x) ** 2.0)
+    radians = np.arctan2(end_y - start_y, end_x - start_x)
+    angle = np.rad2deg(radians)
+
+    return distance, angle
+
+
+def value_deltas(values):
+        assert None not in values
+        assert -1 not in values
+        previous = 0
+        delta_list = []
+        for value in values + [None]:
+            if value is None:
+                break
+            else:
+                try:
+                    delta = value - previous
+                except:
+                    delta = 0
+            assert delta >= 0
+            delta_list.append(delta)
+            previous = value
+        assert len(delta_list) == len(values)
+        delta_list = np.array(delta_list)
+        return delta_list
+
+
 @register_ibs_method
-def pie_rw_subset_3_jrp(ibs, aid_list, min_sights=3, side="L"):
+def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=5, max_sights=25, side='L'):
+    """
+    Example:
+    >>> import concurrent.futures
+    >>> import random
+    >>> import tqdm
+    >>> import os
+    >>> globals().update(locals())
+    >>> from wbia_pie._plugin import *
+    >>> aid_list=None
+    >>> min_sights=5
+    >>> max_sights=25
+    >>> side='L'
+    """
+    import concurrent.futures
+    import numpy as np
     import random
+    import tqdm
+    import cv2
+    import os
+
     random.seed(777)
 
-    MIN_ANNOTS_PER_NAME = 5
-    MAX_ANNOTS_PER_NAME = 20
-    MIN_HEIGHT = 224
-    MIN_WIDTH = 448
+    if aid_list is None:
+        aid_list = ibs.get_valid_aids()
 
-    fname = os.path.join(_PLUGIN_FOLDER, 'rw/photosIDMapHead_L_R.csv')
+    side = side.upper()
+    assert side in ['L', 'R']
+    desired_view = 'left' if side == 'L' else 'right'
+
+    MIN_ANNOTS_PER_NAME = min_sights
+    MAX_ANNOTS_PER_NAME = max_sights
+    CHIP_HEIGHT = 224
+    CHIP_WIDTH = 448
+    MIN_HEIGHT = int(np.floor(CHIP_HEIGHT * 0.75))
+    MIN_WIDTH = int(np.floor(CHIP_WIDTH * 0.75))
+    MIN_GID_DELTA = 150
+
+    # _plugin_folder = '/data/jason.parham/code/wbia-plugin-pie/wbia_pie/'
+    _plugin_folder = _PLUGIN_FOLDER
+
+    fname = os.path.join(_plugin_folder, 'rw/photosIDMapHead_L_R.csv')
     csv_rows = csv_to_dicts(fname)
 
     image_ids   = ut.take_column(csv_rows, 'CatalogImageId')
@@ -844,6 +967,7 @@ def pie_rw_subset_3_jrp(ibs, aid_list, min_sights=3, side="L"):
     directions2 = ut.take_column(csv_rows, 'Concat_ViewDirectionCode2')
     directions3 = ut.take_column(csv_rows, 'Concat_ViewDirectionCode3')
     name_texts  = ut.take_column(csv_rows, 'MarkedIndividual.individualID')
+    years       = ut.take_column(csv_rows, 'Encounter.year')
 
     image_ids_ = [os.path.splitext(image_name)[0] for image_name in image_names]
     assert all([image_id == image_id_ for image_id, image_id_ in zip(image_ids, image_ids_)])
@@ -858,19 +982,25 @@ def pie_rw_subset_3_jrp(ibs, aid_list, min_sights=3, side="L"):
     directions = ut.flatten(directions)
     assert set(directions) == set(['L', 'R'])
 
+    years = list(map(int, years))
+    years = np.array(years)
+
+    min_year = int(np.mean(years) - np.std(years))
+
     image_ids = list(map(int, image_ids))
     name_texts = list(map(int, name_texts))
 
     assert len(image_ids) == len(name_texts)
     assert len(image_ids) == len(directions)
 
-    zipped = zip(image_ids, name_texts, directions)
+    zipped = zip(image_ids, name_texts, directions, years)
     data_dict = {
         image_id: {
             'name': str(name).lower(),
-            'view': ('left' if direction == 'L' else 'right').lower()
+            'view': ('left' if direction == 'L' else 'right').lower(),
+            'year': year,
         }
-        for image_id, name, direction in zipped
+        for image_id, name, direction, year in zipped
     }
 
     gid_list = ibs.get_valid_gids()
@@ -897,9 +1027,13 @@ def pie_rw_subset_3_jrp(ibs, aid_list, min_sights=3, side="L"):
         data = gid_dict[gid]
         name = data.get('name')
         view = data.get('view')
-        if view == 'left':
-            candidate_gid_list.append(gid)
-            candidate_name_list.append(name)
+        year = data.get('year')
+        if view != desired_view:
+            continue
+        if year < min_year:
+            continue
+        candidate_gid_list.append(gid)
+        candidate_name_list.append(name)
 
     assert len(candidate_gid_list) == len(set(candidate_gid_list))
     assert len(candidate_gid_list) == len(candidate_name_list)
@@ -923,6 +1057,48 @@ def pie_rw_subset_3_jrp(ibs, aid_list, min_sights=3, side="L"):
         for candidate_aid, labeler_species, labeler_viewpoint in zipped
     }
 
+    chip_config = {
+        'dim_size': (CHIP_WIDTH, CHIP_HEIGHT),
+        'resize_dim': 'wh',
+        'ext': '.png',
+    }
+    candidate_chip_filepath_list = ibs.get_annot_chip_fpath(candidate_aid_list, ensure=True, config2_=chip_config)
+
+    arguments_list = list(zip(candidate_chip_filepath_list))
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        candidate_gradient_result_list = list(
+            tqdm.tqdm(
+                executor.map(gradient_magnitude, arguments_list),
+                total=len(arguments_list),
+            )
+        )
+    candidate_gradient_dict = dict(zip(candidate_aid_list, candidate_gradient_result_list))
+
+    candidate_gradient_mean_list = ut.take_column(candidate_gradient_result_list, 'mean')
+    candidate_gradient_mean_list = np.array(candidate_gradient_mean_list)
+    candidate_gradient_mean = np.mean(candidate_gradient_mean_list)
+    candidate_gradient_std = np.std(candidate_gradient_mean_list)
+    candidate_gradient_mean_min = int(np.floor(candidate_gradient_mean - 1.0 * candidate_gradient_std))
+    candidate_gradient_mean_max = int(np.ceil(candidate_gradient_mean + 2.0 * candidate_gradient_std))
+
+    flag_list = np.logical_or(candidate_gradient_mean_list < candidate_gradient_mean_min, candidate_gradient_mean_list > candidate_gradient_mean_max)
+    print('Ignoring %d candidates due to gradient' % (sum(flag_list), ))
+
+    current_species_list = ibs.get_annot_species(candidate_aid_list)
+    ibs.set_annot_species(candidate_aid_list, ['right_whale_head'] * len(candidate_aid_list))
+    candidate_bg_filepath_list = ibs.get_annot_probchip_fpath(candidate_aid_list)
+    ibs.set_annot_species(candidate_aid_list, current_species_list)
+
+    arguments_list = list(zip(candidate_bg_filepath_list))
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        candidate_mask_point_result_list = list(
+            tqdm.tqdm(
+                executor.map(background_mask_points, arguments_list),
+                total=len(arguments_list),
+            )
+        )
+    candidate_mask_point_dict = dict(zip(candidate_aid_list, candidate_mask_point_result_list))
+
     candidate_name_dict = {}
     zipped = zip(candidate_gid_list, candidate_aids_list, candidate_name_list)
     for candidate_gid, candidate_aid_list, candidate_name in zipped:
@@ -943,12 +1119,63 @@ def pie_rw_subset_3_jrp(ibs, aid_list, min_sights=3, side="L"):
             labeler_viewpoint = labeler_data.get('viewpoint')
             if labeler_species not in ['right_whale+head']:
                 continue
-            if labeler_viewpoint in ['up', 'right', 'front']:
+            if labeler_viewpoint not in ['left']:
+                continue
+
+            gradient_data = candidate_gradient_dict.get(candidate_aid, None)
+            if gradient_data is None:
+                continue
+            gradient_mean = gradient_data.get('mean')
+            if gradient_mean < candidate_gradient_mean_min:
+                continue
+            if gradient_mean > candidate_gradient_mean_max:
+                continue
+
+            mask_point_data = candidate_mask_point_dict.get(candidate_aid, None)
+            if mask_point_data is None:
+                continue
+            point_distance = mask_point_data[0]
+            point_angle = mask_point_data[1]
+            if point_distance is None or point_angle is None:
+                continue
+            if point_distance < CHIP_WIDTH // 4:
+                continue
+            if point_angle > -10.0:
+                continue
+            if point_angle < -30.0:
                 continue
 
             if candidate_name not in candidate_name_dict:
                 candidate_name_dict[candidate_name] = []
             candidate_name_dict[candidate_name].append(candidate_aid)
+
+    total_candidate_aids = len(ut.flatten(candidate_name_dict.values()))
+    total_candidate_nids = len(candidate_name_dict)
+    print('Pre-limited candidates: %d aids for %d names' % (total_candidate_aids, total_candidate_nids, ))
+
+    for name in candidate_name_dict:
+        rowid_list = candidate_name_dict[name]
+        value_list = ibs.get_annot_gids(rowid_list)
+
+        values = sorted(zip(value_list, rowid_list))
+        value_list = ut.take_column(values, 0)
+        rowid_list = ut.take_column(values, 1)
+
+        delta_list = value_deltas(value_list)
+        candidate_list = delta_list < MIN_GID_DELTA
+        while True in candidate_list:
+            candidate_index = np.argmin(delta_list)
+            # print('Popping index %d' % (candidate_index, ))
+            value_list.pop(candidate_index)
+            rowid_list.pop(candidate_index)
+            delta_list = value_deltas(value_list)
+            candidate_list = delta_list < MIN_GID_DELTA
+
+        candidate_name_dict[name] = rowid_list
+
+    total_candidate_aids = len(ut.flatten(candidate_name_dict.values()))
+    total_candidate_nids = len(candidate_name_dict)
+    print('Pre-limited* candidates: %d aids for %d names' % (total_candidate_aids, total_candidate_nids, ))
 
     final_aid_list = []
     final_name_list = []
@@ -971,6 +1198,8 @@ def pie_rw_subset_3_jrp(ibs, aid_list, min_sights=3, side="L"):
     final_gid_list = ibs.get_annot_gids(final_aid_list)
     assert len(final_gid_list) == len(set(final_gid_list))
 
+    print('Post-limited candidates: %d aids for %d names' % (len(final_aid_list), len(set(final_name_list)), ))
+
     # existing_viewpoint_list = ibs.get_annot_viewpoints(final_aid_list)
     existing_name_list = ibs.get_annot_names(final_aid_list)
 
@@ -985,6 +1214,104 @@ def pie_rw_subset_3_jrp(ibs, aid_list, min_sights=3, side="L"):
     gid_list = ibs.get_valid_gids()
     ibs.unrelate_images_and_imagesets(gid_list, [imageset_rowid] * len(gid_list))
     ibs.set_image_imagesettext(final_gid_list, [imageset_name] * len(final_gid_list))
+
+    final_aid_list = list(set(final_aid_list) & set(aid_list))
+    final_aid_list = sorted(final_aid_list)
+
+    final_name_list = ibs.get_annot_names(final_aid_list)
+    final_chip_filepath_list = ibs.get_annot_chip_fpath(final_aid_list, ensure=True, config2_=chip_config)
+
+    current_species_list = ibs.get_annot_species(final_aid_list)
+    ibs.set_annot_species(final_aid_list, ['right_whale_head'] * len(final_aid_list))
+    final_bg_filepath_list = ibs.get_annot_probchip_fpath(final_aid_list)
+    ibs.set_annot_species(final_aid_list, current_species_list)
+
+    output_path = os.path.join(ibs.dbdir, 'rw-training-dump-jrp')
+    ut.delete(output_path)
+    ut.ensuredir(output_path)
+    zipped = list(zip(final_aid_list, final_name_list, final_chip_filepath_list, final_bg_filepath_list))
+    # zipped = zipped[:100]
+    for final_aid, final_name, final_chip_filepath, final_bg_filepath in tqdm.tqdm(zipped):
+        output_name_path = os.path.join(output_path, final_name)
+        ut.ensuredir(output_name_path)
+        output_chip_filename_path = os.path.join(output_name_path, '%d.png' % (final_aid, ))
+        ut.copy(final_chip_filepath, output_chip_filename_path, verbose=False)
+        output_bg_filename_path = os.path.join(output_name_path, '%d.mask.png' % (final_aid, ))
+        ut.copy(final_bg_filepath, output_bg_filename_path, verbose=False)
+
+        margin = 8
+        k = 13
+        input_filepath = output_bg_filename_path
+        output_filepath = input_filepath.replace('.mask.png', '.mask.v0.png')
+        image = cv2.imread(input_filepath, 0)
+        image = image.astype(np.float32)
+        image[image < 32] = 0
+        # image[image > 0] = 255
+        kernel = np.ones((k, k), np.uint8)
+        image[:margin, :] = 0
+        image[-margin:, :] = 0
+        image[:, :margin] = 0
+        image[:, -margin:] = 0
+        image = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
+        image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
+        image = cv2.blur(image, (k, k))
+        image = np.around(image)
+        image[image < 32] = 0
+        image[image > 0] = 255
+        mask = image.astype(np.uint8)
+        cv2.imwrite(output_filepath, mask)
+
+        input_filepath = output_chip_filename_path
+        output_filepath = input_filepath.replace('.png', '.composite.png')
+        image = cv2.imread(input_filepath)
+        image = image.astype(np.float32)
+
+        mask = mask.astype(np.float32)
+        mask /= 255.0
+        mask = cv2.resize(mask, image.shape[:2][::-1], interpolation=cv2.INTER_LANCZOS4)
+        mask_ = cv2.merge((mask, mask, mask))
+        composite = image * mask_
+
+        try:
+            mask_x = np.sum(mask, axis=0)
+            for index in range(len(mask_x)):
+                if mask_x[index] > 0:
+                    start_x = index
+                    break
+            start_y = int(np.around(np.mean(ut.flatten(np.argwhere(mask[:, start_x] > 0)))))
+            cv2.circle(composite, (start_x, start_y), 10, (0, 255, 0))
+        except:
+            pass
+        try:
+            mask_y = np.sum(mask, axis=1)
+            for index in range(len(mask_y)):
+                if mask_y[index] > 0:
+                    end_y = index
+                    break
+            end_x = int(np.around(np.mean(ut.flatten(np.argwhere(mask[end_y, :] > 0)))))
+
+            cv2.circle(composite, (end_x, end_y), 10, (0, 0, 255))
+        except:
+            pass
+
+        cv2.imwrite(output_filepath, composite)
+
+        input_filepath = output_chip_filename_path
+        output_filepath = input_filepath.replace('.png', '.rotated.png')
+        image = cv2.imread(input_filepath)
+
+        radians = np.arctan2(end_y - start_y, end_x - start_x)
+        angle = np.rad2deg(radians)
+        print(angle)
+        h, w = image.shape[:2]
+        center = (w / 2, h / 2)
+        # Perform the rotation
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated = cv2.warpAffine(image, M, (w, h))
+
+        cv2.imwrite(output_filepath, rotated)
+
+    print('Rendered to %r' % (output_path, ))
 
     return final_aid_list
 
