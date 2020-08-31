@@ -18,7 +18,7 @@ if gpus:
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
         logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        print(len(gpus), 'Physical GPUs,', len(logical_gpus), 'Logical GPUs')
     except RuntimeError as e:
         # Memory growth must be set before GPUs have been initialized
         print(e)
@@ -166,8 +166,7 @@ def train(config, split_num=-1):
         train_from_layer=config['model']['train_from_layer'],
         loss_func=config['model']['loss'],
         weights='imagenet',
-        # optimizer='adam',
-        optimizer='sgd',
+        optimizer=config['model'].get('optimizer', 'adam'),
     )
 
     if config['model']['type'] == 'TripletLoss':
