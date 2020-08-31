@@ -192,7 +192,7 @@ class BaseModel(object):
         self.embedding_size = embedding_size
         self.weights = weights
         self.optimizer = optimizer
-        self.use_dropout = False
+        self.use_dropout = use_dropout
         self.backend = backend
         self.frontend = frontend
         self.feature_extractor()
