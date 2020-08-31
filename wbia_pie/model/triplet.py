@@ -34,6 +34,7 @@ class TripletLoss(BaseModel):
         loss_func='semi_hard_triplet',
         weights='imagenet',
         optimizer='adam',
+        use_dropout=False,
         show_summary=True,
     ):
         self.loss_func = loss_func
@@ -47,6 +48,7 @@ class TripletLoss(BaseModel):
             distance,
             weights,
             optimizer,
+            use_dropout,
         )
         self.model = self.top_model
         if show_summary:

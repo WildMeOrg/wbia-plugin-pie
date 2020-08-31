@@ -167,6 +167,7 @@ def train(config, split_num=-1):
         loss_func=config['model']['loss'],
         weights='imagenet',
         optimizer=config['model'].get('optimizer', 'adam'),
+        use_dropout=config['model'].get('use_dropout', False),
     )
 
     if config['model']['type'] == 'TripletLoss':
