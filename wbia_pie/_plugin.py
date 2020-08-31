@@ -640,9 +640,9 @@ def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG):
 
     from .train import train
     import datetime
-    print("%s: about to train" % datetime.datetime.now())
+    print('%s: about to train' % datetime.datetime.now())
     ans = train(config)
-    print("%s: done training" % datetime.datetime.now())
+    print('%s: done training' % datetime.datetime.now())
     return ans
 
 
@@ -652,9 +652,9 @@ def pie_evaluate(ibs, config_path=_DEFAULT_CONFIG):
     # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
     from .evaluate import evaluate
     import datetime
-    print("%s: about to evaluate" % datetime.datetime.now())
+    print('%s: about to evaluate' % datetime.datetime.now())
     ans = evaluate(config_path)
-    print("%s: done evaluating" % datetime.datetime.now())
+    print('%s: done evaluating' % datetime.datetime.now())
     return ans
 
 
@@ -731,7 +731,7 @@ def csv_to_dicts(fname):
 
 
 @register_ibs_method
-def pie_rw_subset_2(ibs, aid_list, min_sights=3, side="L"):
+def pie_rw_subset_2(ibs, aid_list, min_sights=3, side='L'):
     fname = os.path.join(_PLUGIN_FOLDER, 'rw/photosIDMapHead_L_R.csv')
     csv_rows = csv_to_dicts(fname)
     narw_im_names = [row['Encounter.MediaAsset'] for row in csv_rows]
@@ -745,7 +745,7 @@ def pie_rw_subset_2(ibs, aid_list, min_sights=3, side="L"):
 
     # grab annots where viewpoints agree in both sources
     # side_view and side are just two diff labels for same thing, but in two diff places
-    side_view = "left" if side == 'L' else "right"
+    side_view = 'left' if side == 'L' else 'right'
     good_annots = [aid for aid, view, im_name in zip(aid_list, ib_views, ib_im_names)
                    if view == side_view and narw_image_to_viewcode[im_name] == side]
     good_annots = ibs.subset_with_resights(good_annots, n=min_sights)
@@ -754,7 +754,7 @@ def pie_rw_subset_2(ibs, aid_list, min_sights=3, side="L"):
     name_counts = _count_dict(good_names)
     name_hist = [name_counts[name] for name in name_counts.keys()]
     name_hist = _count_dict(name_hist)
-    print("name hist:")
+    print('name hist:')
     print(name_hist)
     num_names = len(set(good_names))
     annots_per_name = len(good_annots) / num_names
@@ -766,7 +766,7 @@ def pie_rw_subset_2(ibs, aid_list, min_sights=3, side="L"):
 
 
 @register_ibs_method
-def pie_rw_subset_3_drew(ibs, aid_list, min_sights=6, max_sights=20, side="L"):
+def pie_rw_subset_3_drew(ibs, aid_list, min_sights=6, max_sights=20, side='L'):
     fname = os.path.join(_PLUGIN_FOLDER, 'rw/photosIDMapHead_L_R.csv')
     csv_rows = csv_to_dicts(fname)
     narw_im_names = [row['Encounter.MediaAsset'] for row in csv_rows]
@@ -788,7 +788,7 @@ def pie_rw_subset_3_drew(ibs, aid_list, min_sights=6, max_sights=20, side="L"):
     name_counts = _count_dict(good_names)
     name_hist = [name_counts[name] for name in name_counts.keys()]
     name_hist = _count_dict(name_hist)
-    print("name hist:")
+    print('name hist:')
     print(name_hist)
     num_names = len(set(good_names))
     annots_per_name = len(good_annots) / num_names
@@ -916,18 +916,20 @@ def value_deltas(values):
 
 
 @register_ibs_method
-def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=5, max_sights=25, side='L'):
+def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, side='L'):
     """
     Example:
     >>> import concurrent.futures
+    >>> import numpy as np
     >>> import random
     >>> import tqdm
+    >>> import cv2
     >>> import os
     >>> globals().update(locals())
     >>> from wbia_pie._plugin import *
     >>> aid_list=None
-    >>> min_sights=5
-    >>> max_sights=25
+    >>> min_sights=3
+    >>> max_sights=np.inf
     >>> side='L'
     """
     import concurrent.futures
@@ -954,8 +956,8 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=5, max_sights=25, side='L
     MIN_WIDTH = int(np.floor(CHIP_WIDTH * 0.75))
     MIN_GID_DELTA = 150
 
-    # _plugin_folder = '/data/jason.parham/code/wbia-plugin-pie/wbia_pie/'
-    _plugin_folder = _PLUGIN_FOLDER
+    _plugin_folder = '/data/jason.parham/code/wbia-plugin-pie/wbia_pie/'
+    # _plugin_folder = _PLUGIN_FOLDER
 
     fname = os.path.join(_plugin_folder, 'rw/photosIDMapHead_L_R.csv')
     csv_rows = csv_to_dicts(fname)
@@ -1226,90 +1228,100 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=5, max_sights=25, side='L
     final_bg_filepath_list = ibs.get_annot_probchip_fpath(final_aid_list)
     ibs.set_annot_species(final_aid_list, current_species_list)
 
-    output_path = os.path.join(ibs.dbdir, 'rw-training-dump-jrp')
+    output_path = os.path.join(ibs.dbdir, 'rw-training-dump-jrp-examples')
     ut.delete(output_path)
     ut.ensuredir(output_path)
+
+    with open(os.path.join(output_path, 'names.csv'), 'w') as output_file:
+        final_image_uri_original_list = ibs.get_image_uris_original(final_gid_list)
+        for final_image_uri_original, final_name in zip(final_image_uri_original_list, final_name_list):
+            final_filename_original = os.path.splitext(os.path.split(final_image_uri_original)[1])[0]
+            output_file.write('%s,%s\n' % (final_filename_original, final_name, ))
+
     zipped = list(zip(final_aid_list, final_name_list, final_chip_filepath_list, final_bg_filepath_list))
     # zipped = zipped[:100]
     for final_aid, final_name, final_chip_filepath, final_bg_filepath in tqdm.tqdm(zipped):
         output_name_path = os.path.join(output_path, final_name)
         ut.ensuredir(output_name_path)
-        output_chip_filename_path = os.path.join(output_name_path, '%d.png' % (final_aid, ))
-        ut.copy(final_chip_filepath, output_chip_filename_path, verbose=False)
-        output_bg_filename_path = os.path.join(output_name_path, '%d.mask.png' % (final_aid, ))
-        ut.copy(final_bg_filepath, output_bg_filename_path, verbose=False)
+        output_chip_filename_path = os.path.join(output_name_path, '%d.jpg' % (final_aid, ))
+        image = cv2.imread(final_chip_filepath)
+        cv2.imwrite(output_chip_filename_path, image)
 
-        margin = 8
-        k = 13
-        input_filepath = output_bg_filename_path
-        output_filepath = input_filepath.replace('.mask.png', '.mask.v0.png')
-        image = cv2.imread(input_filepath, 0)
-        image = image.astype(np.float32)
-        image[image < 32] = 0
+        # ut.copy(final_chip_filepath, output_chip_filename_path, verbose=False)
+        # output_bg_filename_path = os.path.join(output_name_path, '%d.mask.png' % (final_aid, ))
+        # ut.copy(final_bg_filepath, output_bg_filename_path, verbose=False)
+
+        # margin = 8
+        # k = 13
+        # input_filepath = output_bg_filename_path
+        # output_filepath = input_filepath.replace('.mask.png', '.mask.v0.png')
+        # image = cv2.imread(input_filepath, 0)
+        # image = image.astype(np.float32)
+        # image[image < 32] = 0
+        # # image[image > 0] = 255
+        # kernel = np.ones((k, k), np.uint8)
+        # image[:margin, :] = 0
+        # image[-margin:, :] = 0
+        # image[:, :margin] = 0
+        # image[:, -margin:] = 0
+        # image = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
+        # image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
+        # image = cv2.blur(image, (k, k))
+        # image = np.around(image)
+        # image[image < 32] = 0
         # image[image > 0] = 255
-        kernel = np.ones((k, k), np.uint8)
-        image[:margin, :] = 0
-        image[-margin:, :] = 0
-        image[:, :margin] = 0
-        image[:, -margin:] = 0
-        image = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
-        image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
-        image = cv2.blur(image, (k, k))
-        image = np.around(image)
-        image[image < 32] = 0
-        image[image > 0] = 255
-        mask = image.astype(np.uint8)
-        cv2.imwrite(output_filepath, mask)
+        # mask = image.astype(np.uint8)
+        # cv2.imwrite(output_filepath, mask)
 
-        input_filepath = output_chip_filename_path
-        output_filepath = input_filepath.replace('.png', '.composite.png')
-        image = cv2.imread(input_filepath)
-        image = image.astype(np.float32)
+        # input_filepath = output_chip_filename_path
+        # output_filepath = input_filepath.replace('.png', '.composite.png')
+        # image = cv2.imread(input_filepath)
+        # image = image.astype(np.float32)
 
-        mask = mask.astype(np.float32)
-        mask /= 255.0
-        mask = cv2.resize(mask, image.shape[:2][::-1], interpolation=cv2.INTER_LANCZOS4)
-        mask_ = cv2.merge((mask, mask, mask))
-        composite = image * mask_
+        # mask = mask.astype(np.float32)
+        # mask /= 255.0
+        # mask = cv2.resize(mask, image.shape[:2][::-1], interpolation=cv2.INTER_LANCZOS4)
+        # mask_ = cv2.merge((mask, mask, mask))
+        # composite = image * mask_
 
-        try:
-            mask_x = np.sum(mask, axis=0)
-            for index in range(len(mask_x)):
-                if mask_x[index] > 0:
-                    start_x = index
-                    break
-            start_y = int(np.around(np.mean(ut.flatten(np.argwhere(mask[:, start_x] > 0)))))
-            cv2.circle(composite, (start_x, start_y), 10, (0, 255, 0))
-        except:
-            pass
-        try:
-            mask_y = np.sum(mask, axis=1)
-            for index in range(len(mask_y)):
-                if mask_y[index] > 0:
-                    end_y = index
-                    break
-            end_x = int(np.around(np.mean(ut.flatten(np.argwhere(mask[end_y, :] > 0)))))
+        # try:
+        #     mask_x = np.sum(mask, axis=0)
+        #     for index in range(len(mask_x)):
+        #         if mask_x[index] > 0:
+        #             start_x = index
+        #             break
+        #     start_y = int(np.around(np.mean(ut.flatten(np.argwhere(mask[:, start_x] > 0)))))
+        #     cv2.circle(composite, (start_x, start_y), 10, (0, 255, 0))
+        # except:
+        #     pass
+        # try:
+        #     mask_y = np.sum(mask, axis=1)
+        #     for index in range(len(mask_y)):
+        #         if mask_y[index] > 0:
+        #             end_y = index
+        #             break
+        #     end_x = int(np.around(np.mean(ut.flatten(np.argwhere(mask[end_y, :] > 0)))))
 
-            cv2.circle(composite, (end_x, end_y), 10, (0, 0, 255))
-        except:
-            pass
+        #     cv2.circle(composite, (end_x, end_y), 10, (0, 0, 255))
+        # except:
+        #     pass
 
-        cv2.imwrite(output_filepath, composite)
+        # cv2.imwrite(output_filepath, composite)
 
-        input_filepath = output_chip_filename_path
-        output_filepath = input_filepath.replace('.png', '.rotated.png')
-        image = cv2.imread(input_filepath)
+        # input_filepath = output_chip_filename_path
+        # output_filepath = input_filepath.replace('.png', '.rotated.png')
+        # image = cv2.imread(input_filepath)
 
-        radians = np.arctan2(end_y - start_y, end_x - start_x)
-        angle = np.rad2deg(radians)
-        print(angle)
-        h, w = image.shape[:2]
-        center = (w / 2, h / 2)
-        # Perform the rotation
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(image, M, (w, h))
+        # radians = np.arctan2(end_y - start_y, end_x - start_x)
+        # angle = np.rad2deg(radians)
+        # # print(angle)
+        # h, w = image.shape[:2]
+        # center = (w / 2, h / 2)
+        # # Perform the rotation
+        # M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        # rotated = cv2.warpAffine(image, M, (w, h))
 
-        cv2.imwrite(output_filepath, rotated)
+        # cv2.imwrite(output_filepath, rotated)
 
     print('Rendered to %r' % (output_path, ))
 
@@ -1326,7 +1338,7 @@ def pie_apply_names(ibs, aid_list):
     # load metadata file
     import csv
     csv_path = '/home/wildme/tmp/photosIDMap.csv'
-    with open(csv_path, "r") as f:
+    with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
         csv_dicts = [{k: v for k, v in row.items()} for row in csv.DictReader(f)]
 
