@@ -649,6 +649,24 @@ def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG):
 
 
 @register_ibs_method
+def pie_aerial_training(ibs, base_config_path='configs/rw-aerial.json'):
+
+    # skipping bc should be one-time
+    # ibs.pie_prepare_rw_aerials(base_config_path)
+    if not os.path.isabs(base_config_path):
+        base_config_path = os.path.join(_PLUGIN_FOLDER, base_config_path)
+    with open(base_config_path, 'r') as f:
+        config = json.load(f)
+
+    from .train import train
+    import datetime
+    print("%s: about to train" % datetime.datetime.now())
+    ans = train(config)
+    print("%s: done training" % datetime.datetime.now())
+    return ans
+
+
+@register_ibs_method
 def pie_evaluate(ibs, config_path=_DEFAULT_CONFIG):
     # TODO: do we change the config file?
     # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
@@ -799,6 +817,42 @@ def pie_rw_subset_3_drew(ibs, aid_list, min_sights=6, max_sights=20, side="L"):
         '{:6.1f}'.format(annots_per_name), side,
         '{0:3}'.format(num_names), '{0:3}'.format(len(good_annots))))
     return good_annots
+
+
+@register_ibs_method
+def pie_prepare_rw_aerials(ibs, config_path='configs/rw-aerial.json', min=3):
+    fname = '/home/wildme/code/ibeis-deepsense-module/retraining/kaggle-passports.csv'
+    csv_rows = csv_to_dicts(fname)
+
+
+    if not os.path.isabs(config_path):
+        config_path = os.path.join(_PLUGIN_FOLDER, config_path)
+    with open(config_path, 'r') as f:
+        pie_config = json.load(f)
+
+    target_dir = pie_config['data']['train_image_folder']
+    if not os.path.isabs(target_dir):
+        target_dir = os.path.join(_PLUGIN_FOLDER, target_dir)
+
+    names  = [row['whaleID'] for row in csv_rows]
+    fpaths = [row['Image']   for row in csv_rows]
+
+    good_fpaths, good_names = subset_with_resights_helper(names, fpaths, min)
+
+    # just wanna compute some name statistics
+    name_counts = _count_dict(good_names)
+    name_hist = [name_counts[name] for name in name_counts.keys()]
+    name_hist = _count_dict(name_hist)
+    n_names = len(set(good_names))
+    print("%s names, %s sights, %s per" % (n_names, len(good_fpaths), len(good_fpaths)/n_names))
+    print("name-sightings histogram:")
+    print(name_hist)
+
+    print("about to copy %s files into %s" %(len(good_fpaths), target_dir))
+    for (name, fpath) in zip(good_names, good_fpaths):
+        name_dir = os.path.join(target_dir, name)
+        os.makedirs(name_dir, exist_ok=True)
+        shutil.copy(fpath, name_dir)
 
 
 def only_single_annot_images(ibs, aid_list):
@@ -1389,6 +1443,14 @@ def subset_with_resights(ibs, aid_list, n=3):
     name_counts = _count_dict(names)
     good_annots = [aid for aid, name in zip(aid_list, names) if name_counts[name] >= n]
     return good_annots
+
+
+def subset_with_resights_helper(names, imgs, n=3):
+    name_counts = _count_dict(names)
+    good_pairs = [(im,name) for im, name in zip(imgs, names) if name_counts[name] >= n]
+    good_imgs  = [pair[0] for pair in good_pairs]
+    good_names = [pair[1] for pair in good_pairs]
+    return good_imgs, good_names
 
 
 @register_ibs_method
