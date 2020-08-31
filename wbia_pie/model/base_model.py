@@ -172,6 +172,7 @@ class BaseModel(object):
         distance='l2',
         weights='imagenet',
         optimizer='adam',
+        use_dropout=False,
     ):
         """Base model consists of backend feature extractor (pretrained model) and a front-end model.
 
@@ -191,6 +192,7 @@ class BaseModel(object):
         self.embedding_size = embedding_size
         self.weights = weights
         self.optimizer = optimizer
+        self.use_dropout = False
         self.backend = backend
         self.frontend = frontend
         self.feature_extractor()
@@ -275,7 +277,7 @@ class BaseModel(object):
             )
         elif self.frontend == 'glob_pool':
             self.top_model = glob_pool(
-                embedding_size=self.embedding_size, backend_model=self.backend_model
+                embedding_size=self.embedding_size, backend_model=self.backend_model, use_dropout=self.use_dropout
             )
         elif self.frontend == 'glob_softmax':
             self.top_model = glob_softmax(
