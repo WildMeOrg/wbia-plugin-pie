@@ -166,6 +166,8 @@ def train(config, split_num=-1):
         train_from_layer=config['model']['train_from_layer'],
         loss_func=config['model']['loss'],
         weights='imagenet',
+        # optimizer='adam',
+        optimizer='sgd',
     )
 
     if config['model']['type'] == 'TripletLoss':
@@ -226,12 +228,12 @@ def train(config, split_num=-1):
         )
     elif config['train']['aug_rate'] == 'right-whale':
         gen_args = dict(
-            rotation_range=15,
-            width_shift_range=0.1,
-            height_shift_range=0.1,
-            # shear_range=0.1,
-            zoom_range=0.1,
-            channel_shift_range=0.1,
+            rotation_range=30,
+            width_shift_range=0.15,
+            height_shift_range=0.15,
+            shear_range=0.1,
+            zoom_range=0.15,
+            channel_shift_range=0.15,
             data_format=K.image_data_format(),
             fill_mode='reflect',
             preprocessing_function=mymodel.backend_class.normalize,
