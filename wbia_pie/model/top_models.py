@@ -7,6 +7,7 @@ from keras.layers import (
     BatchNormalization,
     Dense,
     Lambda,
+    Dropout,
     GlobalAveragePooling2D,
 )
 from keras import regularizers
@@ -41,7 +42,7 @@ def glob_pool_norm(embedding_size, backend_model=None, features_shape=None):
         return Model(input_layer, norm_layer, name='top_model')
 
 
-def glob_pool(embedding_size, backend_model=None, features_shape=None):
+def glob_pool(embedding_size, backend_model=None, features_shape=None, use_dropout=True):
     """Global Pooling of feature maps without normalisation."""
     if backend_model is not None:
         input_layer = backend_model.output
@@ -51,6 +52,11 @@ def glob_pool(embedding_size, backend_model=None, features_shape=None):
         raise ValueError('Provide a base model or a shape of features.')
 
     x = GlobalAveragePooling2D(name='top_global_pool')(input_layer)
+
+    dropout = Dropout(0.1)
+
+    if use_dropout:
+        x = dropout(x)
 
     dense_layer = Dense(
         embedding_size,
