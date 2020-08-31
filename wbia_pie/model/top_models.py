@@ -56,6 +56,7 @@ def glob_pool(embedding_size, backend_model=None, features_shape=None, use_dropo
     dropout = Dropout(0.1)
 
     if use_dropout:
+        print('Using Dropout')
         x = dropout(x)
 
     dense_layer = Dense(
