@@ -970,7 +970,7 @@ def value_deltas(values):
 
 
 @register_ibs_method
-def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, side='L'):
+def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=2, max_sights=np.inf, side='L'):
     """
     Example:
     >>> import concurrent.futures
@@ -982,7 +982,7 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
     >>> globals().update(locals())
     >>> from wbia_pie._plugin import *
     >>> aid_list=None
-    >>> min_sights=3
+    >>> min_sights=2
     >>> max_sights=np.inf
     >>> side='L'
     """
@@ -1010,10 +1010,11 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
     MIN_WIDTH = int(np.floor(CHIP_WIDTH * 0.75))
     MIN_GID_DELTA = 150
 
-    _plugin_folder = '/data/jason.parham/code/wbia-plugin-pie/wbia_pie/'
-    # _plugin_folder = _PLUGIN_FOLDER
+    # _plugin_folder = '/data/jason.parham/code/wbia-plugin-pie/wbia_pie/'
+    _plugin_folder = _PLUGIN_FOLDER
 
-    fname = os.path.join(_plugin_folder, 'rw/photosIDMapHead_L_R.csv')
+    # fname = os.path.join(_plugin_folder, 'rw/photosIDMapHead_L_R.csv')
+    fname = os.path.join(_plugin_folder, 'rw/photosIDMapHead_L_R.new.csv')
     csv_rows = csv_to_dicts(fname)
 
     image_ids   = ut.take_column(csv_rows, 'CatalogImageId')
@@ -1024,6 +1025,8 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
     directions3 = ut.take_column(csv_rows, 'Concat_ViewDirectionCode3')
     name_texts  = ut.take_column(csv_rows, 'MarkedIndividual.individualID')
     years       = ut.take_column(csv_rows, 'Encounter.year')
+    primaries   = ut.take_column(csv_rows, 'PrimaryImage')
+    deaths      = ut.take_column(csv_rows, 'DeathYear')
 
     image_ids_ = [os.path.splitext(image_name)[0] for image_name in image_names]
     assert all([image_id == image_id_ for image_id, image_id_ in zip(image_ids, image_ids_)])
@@ -1040,8 +1043,12 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
 
     years = list(map(int, years))
     years = np.array(years)
-
     min_year = int(np.mean(years) - np.std(years))
+
+    primaries = list(map(bool, primaries))
+    primaries = np.array(primaries)
+
+    deaths = [None if len(death) == 0 else int(death) for death in deaths]
 
     image_ids = list(map(int, image_ids))
     name_texts = list(map(int, name_texts))
@@ -1049,14 +1056,16 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
     assert len(image_ids) == len(name_texts)
     assert len(image_ids) == len(directions)
 
-    zipped = zip(image_ids, name_texts, directions, years)
+    zipped = zip(image_ids, name_texts, directions, years, primaries, deaths)
     data_dict = {
         image_id: {
             'name': str(name).lower(),
             'view': ('left' if direction == 'L' else 'right').lower(),
             'year': year,
+            'prime': primary,
+            'dead': death,
         }
-        for image_id, name, direction, year in zipped
+        for image_id, name, direction, year, primary, death in zipped
     }
 
     gid_list = ibs.get_valid_gids()
@@ -1079,20 +1088,27 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
 
     candidate_gid_list = []
     candidate_name_list = []
+    candidate_primary_list = []
     for gid in gid_dict:
         data = gid_dict[gid]
         name = data.get('name')
         view = data.get('view')
         year = data.get('year')
+        dead = data.get('dead')
+        prime = data.get('prime')
         if view != desired_view:
             continue
         if year < min_year:
             continue
+        if dead is not None:
+            continue
         candidate_gid_list.append(gid)
         candidate_name_list.append(name)
+        candidate_primary_list.append(prime)
 
     assert len(candidate_gid_list) == len(set(candidate_gid_list))
     assert len(candidate_gid_list) == len(candidate_name_list)
+    assert len(candidate_gid_list) == len(candidate_primary_list)
 
     candidate_aids_list = ibs.get_image_aids(candidate_gid_list)
     # len_list = list(map(len, candidate_aids_list))
@@ -1155,18 +1171,12 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
         )
     candidate_mask_point_dict = dict(zip(candidate_aid_list, candidate_mask_point_result_list))
 
+    candidate_primary_aid_set = set([])
     candidate_name_dict = {}
-    zipped = zip(candidate_gid_list, candidate_aids_list, candidate_name_list)
-    for candidate_gid, candidate_aid_list, candidate_name in zipped:
+    zipped = zip(candidate_gid_list, candidate_aids_list, candidate_name_list, candidate_primary_list)
+    for candidate_gid, candidate_aid_list, candidate_name, candidate_primary in zipped:
         if len(candidate_aid_list) == 1:
             candidate_aid = candidate_aid_list[0]
-
-            candidate_bbox = ibs.get_annot_bboxes(candidate_aid)
-            xtl, ytl, w, h = candidate_bbox
-            if w < MIN_WIDTH:
-                continue
-            if h < MIN_HEIGHT:
-                continue
 
             labeler_data = labeler_dict.get(candidate_aid, None)
             if labeler_data is None:
@@ -1178,28 +1188,38 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
             if labeler_viewpoint not in ['left']:
                 continue
 
-            gradient_data = candidate_gradient_dict.get(candidate_aid, None)
-            if gradient_data is None:
-                continue
-            gradient_mean = gradient_data.get('mean')
-            if gradient_mean < candidate_gradient_mean_min:
-                continue
-            if gradient_mean > candidate_gradient_mean_max:
-                continue
+            if not candidate_primary:
+                candidate_bbox = ibs.get_annot_bboxes(candidate_aid)
+                xtl, ytl, w, h = candidate_bbox
+                if w < MIN_WIDTH:
+                    continue
+                if h < MIN_HEIGHT:
+                    continue
 
-            mask_point_data = candidate_mask_point_dict.get(candidate_aid, None)
-            if mask_point_data is None:
-                continue
-            point_distance = mask_point_data[0]
-            point_angle = mask_point_data[1]
-            if point_distance is None or point_angle is None:
-                continue
-            if point_distance < CHIP_WIDTH // 4:
-                continue
-            if point_angle > -10.0:
-                continue
-            if point_angle < -30.0:
-                continue
+                gradient_data = candidate_gradient_dict.get(candidate_aid, None)
+                if gradient_data is None:
+                    continue
+                gradient_mean = gradient_data.get('mean')
+                if gradient_mean < candidate_gradient_mean_min:
+                    continue
+                if gradient_mean > candidate_gradient_mean_max:
+                    continue
+
+                mask_point_data = candidate_mask_point_dict.get(candidate_aid, None)
+                if mask_point_data is None:
+                    continue
+                point_distance = mask_point_data[0]
+                point_angle = mask_point_data[1]
+                if point_distance is None or point_angle is None:
+                    continue
+                if point_distance < CHIP_WIDTH // 4:
+                    continue
+                if point_angle > -10.0:
+                    continue
+                if point_angle < -30.0:
+                    continue
+            else:
+                candidate_primary_aid_set.add(candidate_aid)
 
             if candidate_name not in candidate_name_dict:
                 candidate_name_dict[candidate_name] = []
@@ -1211,6 +1231,10 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
 
     for name in candidate_name_dict:
         rowid_list = candidate_name_dict[name]
+
+        primary_rowid_list = list(set(rowid_list) & candidate_primary_aid_set)
+        rowid_list = list(set(rowid_list) - candidate_primary_aid_set)
+
         value_list = ibs.get_annot_gids(rowid_list)
 
         values = sorted(zip(value_list, rowid_list))
@@ -1227,7 +1251,7 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
             delta_list = value_deltas(value_list)
             candidate_list = delta_list < MIN_GID_DELTA
 
-        candidate_name_dict[name] = rowid_list
+        candidate_name_dict[name] = rowid_list + primary_rowid_list
 
     total_candidate_aids = len(ut.flatten(candidate_name_dict.values()))
     total_candidate_nids = len(candidate_name_dict)
@@ -1239,6 +1263,10 @@ def pie_rw_subset_3_jrp(ibs, aid_list=None, min_sights=3, max_sights=np.inf, sid
         candidate_name_aid_list = candidate_name_dict[name]
         if len(candidate_name_aid_list) < MIN_ANNOTS_PER_NAME:
             continue
+        primary_candidate_name_aid_list = list(set(candidate_name_aid_list) & candidate_primary_aid_set)
+        if len(primary_candidate_name_aid_list) > 0:
+            if MAX_ANNOTS_PER_NAME < len(candidate_name_aid_list):
+                raise NotImplementedError()
         random.shuffle(candidate_name_aid_list)
         keep_annots = min(len(candidate_name_aid_list), MAX_ANNOTS_PER_NAME)
         candidate_name_aid_list_ = candidate_name_aid_list[:keep_annots]

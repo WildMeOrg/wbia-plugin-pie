@@ -59,13 +59,14 @@ class TripletLoss(BaseModel):
         '''Compile the model'''
         loss_func = loss_func or self.loss_func
 
+        print('Using optimizer: %r' % (self.optimizer, ))
         if self.optimizer == 'adam':
             optimizer = Adam(
                 lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0
             )
         elif self.optimizer == 'sgd':
-            SGD(
-                learning_rate=learning_rate, momentum=0.9, nesterov=True
+            optimizer = SGD(
+                lr=learning_rate, momentum=0.9, nesterov=True
             )
         else:
             raise ValueError('self.optimizer is not recognized')
