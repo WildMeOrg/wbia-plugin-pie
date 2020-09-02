@@ -27,6 +27,7 @@ def evaluate_1_vs_all(
     mean_accuracy_1, mean_accuracy_5, mean_accuracy_10
     """
     print('Computing top-k accuracy for k=', k_list)
+    # k_list is good
     if isinstance(k_list, int):
         k_list = [k_list]
     # Auxilary function to flatten a list
@@ -35,6 +36,7 @@ def evaluate_1_vs_all(
     # Evaluate accuracy at different k over a multiple runs. Report average results.
     acc = {k: [] for k in k_list}
     map_dict = {k: [] for k in k_list}
+    max_k = max(k_list)
 
     for i in range(n_eval_runs):
         neigh_lbl_run = []
@@ -44,7 +46,7 @@ def evaluate_1_vs_all(
         print('Number of classes in query set: ', len(db_emb))
 
         for j in range(len(db_emb)):
-            neigh_lbl_un, _, _ = predict_k_neigh(db_emb[j], db_lbl[j], query_emb[j], k=10)
+            neigh_lbl_un, _, _ = predict_k_neigh(db_emb[j], db_lbl[j], query_emb[j], k=max_k)
             neigh_lbl_run.append(neigh_lbl_un)
 
         query_lbl = flatten(query_lbl)
