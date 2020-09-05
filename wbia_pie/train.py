@@ -255,8 +255,9 @@ def train(config, split_num=-1):
             p=config['train']['cl_per_batch'],
             k=config['train']['sampl_per_class'],
             equal_k=config['train']['equal_k'],
-            perspective=True,
+            perspective=False,
         )
+        # Note! perspective used to be True, JP said to try false
         valid_generator = BatchGenerator(
             valid_imgs,
             valid_labels,
