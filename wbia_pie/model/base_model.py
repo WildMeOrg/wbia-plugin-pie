@@ -383,9 +383,9 @@ class BaseModel(object):
         csv_logger = CSVLogger(logs_file, append=True)
         callbacks = [csv_logger]
 
-        # if self.optimizer == 'sgd':
-            # clr = CyclicLR(base_lr=learning_rate, max_lr=0.0001, step_size=2000., mode='triangular2')
-            # callbacks.append(clr)
+        if self.optimizer == 'sgd':
+            clr = CyclicLR(base_lr=learning_rate, max_lr=0.0001, step_size=2000., mode='triangular2')
+            callbacks.append(clr)
 
         self.model.fit_generator(
             generator=train_gen,
