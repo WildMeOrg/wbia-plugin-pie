@@ -45,7 +45,8 @@ MODEL_URLS = {
     'mobula_birostris': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'mobula_alfredi': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
-    'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5,'
+    'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5,',
+    'right_whale_head': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5,',
 }
 
 
@@ -446,7 +447,7 @@ def aid_scores_from_name_scores(ibs, name_score_dicts, daid_list):
 
 
 @register_ibs_method
-def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, n_results=100):
+def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, query_aug_seed=None, db_aug_seed=None, n_results=100):
     r"""
     Matches an annotation using PIE, by calling PIE's k-means distance measure on PIE embeddings.
 
@@ -487,13 +488,9 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, n_resul
         >>>     print('Checking %r - diff %0.08f' % (label, diff, ))
         >>>     assert diff < 1e-6
     """
-    # just call embeddings once bc of significant startup time on PIE's bulk embedding-generator
-    all_aids = daid_list + [qaid]
-    all_embs = ibs.pie_embedding(all_aids)
-
     # now get the embeddings into the shape and type PIE expects
-    db_embs = np.array(all_embs[:-1])
-    query_emb = np.array(all_embs[-1:])  # query_emb.shape = (1, 256)
+    db_embs = ibs.pie_embedding(daid_list, config_path, augmentation_seed=db_aug_seed)
+    query_emb = ibs.pie_embedding([qaid], config_path, augmentation_seed=query_aug_seed)
     db_labels = _db_labels_for_pie(ibs, daid_list)
 
     from .predict import pred_light
