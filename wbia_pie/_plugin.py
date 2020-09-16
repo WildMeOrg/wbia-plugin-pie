@@ -45,7 +45,6 @@ MODEL_URLS = {
     'mobula_birostris': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'mobula_alfredi': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
-    'whale_humpback': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
     'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5,'
 }
 
@@ -55,7 +54,7 @@ def pie_embedding_timed(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=Tru
     import time
 
     start = time.time()
-    ans = ibs.pie_embedding(aid_list, config_path, use_depc)
+    ans = ibs.pie_embedding(aid_list, config_path, None, use_depc)
     elapsed = time.time() - start
     print('Computed %s embeddings in %s seconds' % (len(aid_list), elapsed))
     per_embedding = elapsed / len(aid_list)
@@ -65,7 +64,7 @@ def pie_embedding_timed(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=Tru
 
 # note: an embedding is 256xfloat8, aka 2kb in size (using default config)
 @register_ibs_method
-def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
+def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, augmentation_seed=None, use_depc=True):
     r"""
     Generate embeddings using the Pose-Invariant Embedding (PIE) algorithm made by Olga
     Moskvyak and released on https://github.com/olgamoskvyak/reid-manta.
@@ -122,12 +121,13 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
         >>> assert compare_embs.max() < 1e-8
     """
     if use_depc:
-        config = {'config_path': config_path}
+        config = {'config_path': config_path, 'augmentation_seed': augmentation_seed}
         embeddings = ibs.depc_annot.get(
             'PieEmbedding', aid_list, 'embedding', config=config
         )
     else:
-        embeddings = pie_compute_embedding(ibs, aid_list, config_path=config_path)
+        embeddings = pie_compute_embedding(ibs, aid_list, config_path=config_path,
+            augmentation_seed=augmentation_seed)
     return embeddings
 
 
