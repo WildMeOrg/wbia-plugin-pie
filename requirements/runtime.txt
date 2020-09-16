@@ -2,7 +2,7 @@
 matplotlib
 networkx
 numpy >= 1.11.1
-opencv-python == 3.4.10.35
+# opencv-python == 3.4.10.35
 scikit-image
 scikit-learn
 scipy
