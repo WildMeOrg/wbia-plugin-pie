@@ -289,6 +289,8 @@ class PieConfig(dt.Config):  # NOQA
     def get_param_info_list(self):
         return [
             ut.ParamInfo('config_path', _DEFAULT_CONFIG),
+            ut.ParamInfo('query_aug_seeds', [None]),
+            ut.ParamInfo('db_aug_seeds', [None]),
         ]
 
 
@@ -393,14 +395,35 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
     assert len(qaids) == 1
     qaid = qaids[0]
 
-    # TODO: double-check config_path arg below is right vis à vis depc stuff
-    name_dist_dicts = ibs.pie_predict_light(
-        qaid, daids, config_path=config['config_path']
-    )
+    query_aug_seeds = config['query_aug_seeds']
+    db_aug_seeds = config['db_aug_seeds']
+    assert len(query_aug_seeds) > 0
+    assert len(db_aug_seeds)    > 0
 
-    # TODO: below funcs
-    name_score_dicts = distance_dicts_to_score_dicts(name_dist_dicts)
-    aid_score_list = aid_scores_from_name_scores(ibs, name_score_dicts, daids)
+    import itertools as it
+    all_aug_seed_pairs = it.product(query_aug_seeds, db_aug_seeds)
+    # herein 'pie_' prefix means the var is in the original PIE match result format,
+    # a list of {"label": ____, "distance": ____} dicts.
+    pie_name_scores_per_aug = []
+
+    # get name scores for every pair of augmentation seeds
+    for query_aug_seed, db_aug_seed in all_aug_seed_pairs:
+        pie_name_dists  = ibs.pie_predict_light(
+            qaid, daids, config['config_path'], query_aug_seed, db_aug_seed,
+        )
+        # pie_name_dists looks like
+        # [{'distance': 0.4188250198219591, 'label': '2642'},
+        # {'distance': 0.46805998920189135, 'label': '1616'},
+        # {'distance': 0.6673709053342388, 'label': '1131'},
+        # {'distance': 0.6690026353505921, 'label': '3623'},
+        # {'distance': 1.1676843213624326, 'label': '1971'},
+        # {'distance': 2.377146577694036, 'label': '1804'}]
+        pie_name_scores = distance_dicts_to_score_dicts(pie_name_dists)
+        pie_name_scores_per_aug.append(pie_name_scores)
+
+    avg_name_scores = average_pie_name_score_dicts(pie_name_scores_per_aug)
+
+    aid_score_list = aid_scores_from_name_scores(ibs, avg_name_scores, daids)
     aid_score_dict = dict(zip(daids, aid_score_list))
 
     for daid in daid_list:
@@ -421,9 +444,45 @@ def distance_dicts_to_score_dicts(distance_dicts, conversion_func=distance_to_sc
     return score_dicts
 
 
+# list_of_name_score_dicts is a list of original-PIE-formatted name_score_dicts lists (list of list of dicts)
+def average_pie_name_score_dicts(list_of_name_score_dicts):
+    from collections import defaultdict
+    name_to_score = defaultdict(float)
+
+    # NOTE: this implicitly adds a score of 0 any time a name does not have a score in a given pie_name_score_dicts
+    # sum the scores per name
+    for pie_name_score_dicts in list_of_name_score_dicts:
+        for name_score in pie_name_score_dicts:
+            name = name_score['label']
+            score = name_score['score']
+            name_to_score[name] += score
+
+    # divide by num augs
+    n_augs = len(list_of_name_score_dicts)
+    for name in name_to_score.keys():
+        name_to_score[name] = name_to_score[name] / n_augs
+
+    return name_to_score
+
+
+@register_ibs_method
+def aid_scores_from_name_scores(ibs, name_score_dict, daid_list):
+    daid_name_list = list(_db_labels_for_pie(ibs, daid_list))
+
+    name_count_dict = {name: daid_name_list.count(name)
+        for name in name_score_dict.keys()}
+
+    name_annotwise_score_dict = {name: name_score_dict[name] / name_count_dict[name]
+        for name in name_score_dict.keys()}
+
+    # bc daid_name_list is in the same order as daid_list
+    daid_scores = [name_annotwise_score_dict[name] for name in daid_name_list]
+    return daid_scores
+
+
 # We get a score per-name, but now we need to compute scores per-annotation. Done simply by averaging the name score over all of that name's annotations
 @register_ibs_method
-def aid_scores_from_name_scores(ibs, name_score_dicts, daid_list):
+def aid_scores_from_name_score_dicts(ibs, name_score_dicts, daid_list):
     daid_name_list = list(_db_labels_for_pie(ibs, daid_list))
     # name_score_dict is a list of dicts; we want one dict with names ('label') as keys
     name_info_dict = {dct['label']: dct for dct in name_score_dicts}
