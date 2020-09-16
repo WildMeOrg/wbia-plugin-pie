@@ -2,6 +2,8 @@
 import os
 import numpy as np
 from keras.models import Model
+from keras.preprocessing.image import ImageDataGenerator
+import keras.backend as K
 from tensorflow.keras.callbacks import Callback
 
 
@@ -246,7 +248,7 @@ class BaseModel(object):
         self.features_shape = self.backend_model.get_output_shape_at(0)[1:]
         print('Shape of base features: {}'.format(self.features_shape))
 
-    def preproc_predict(self, imgs, batch_size=32):
+    def preproc_predict(self, imgs, batch_size=32, augmentation_seed=None):
         """Preprocess images and predict with the model (no batch processing for first step)
         Input:
         imgs: 4D float or int array of images
@@ -261,8 +263,29 @@ class BaseModel(object):
         imgs_preds = np.zeros((imgs.shape[0],) + self.model.get_output_shape_at(0)[1:])
         print('Computing predictions with the shape {}'.format(imgs_preds.shape))
 
+        # do some augmentation here
+        use_augmentation = augmentation_seed is not None
+        print('use_augmentation = %s and augmentation_seed = %s' % (use_augmentation, augmentation_seed))
+        if use_augmentation:
+            gen_args = dict(
+                rotation_range=30,
+                width_shift_range=0.15,
+                height_shift_range=0.15,
+                shear_range=0.1,
+                zoom_range=0.15,
+                channel_shift_range=0.15,
+                data_format=K.image_data_format(),
+                fill_mode='reflect',
+                preprocessing_function=self.backend_class.normalize,
+            )
+            aug_gen = ImageDataGenerator(**gen_args)
+
         for sid, eid in batch_idx:
-            preproc = self.backend_class.normalize(imgs[sid:eid])
+            if use_augmentation:
+                # [0] found experimentally
+                preproc = aug_gen.flow(imgs[sid:eid], batch_size=batch_size, seed=augmentation_seed)[0]
+            else:
+                preproc = self.backend_class.normalize(imgs[sid:eid])
             imgs_preds[sid:eid] = self.model.predict_on_batch(preproc)
 
         print('imgs_preds = %s' % imgs_preds)

@@ -45,6 +45,7 @@ MODEL_URLS = {
     'mobula_birostris': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'mobula_alfredi': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
+    'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5,'
 }
 
 
@@ -132,6 +133,7 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
 class PieEmbeddingConfig(dt.Config):  # NOQA
     _param_info_list = [
         ut.ParamInfo('config_path', _DEFAULT_CONFIG),
+        ut.ParamInfo('augmentation_seed', None, hideif=None),
     ]
 
 
@@ -145,9 +147,10 @@ class PieEmbeddingConfig(dt.Config):  # NOQA
     chunksize=128,
 )
 @register_ibs_method
-def pie_embedding_depc(depc, aid_list, config=_DEFAULT_CONFIG_DICT):
+def pie_embedding_depc(depc, aid_list, config):
     ibs = depc.controller
-    embs = pie_compute_embedding(ibs, aid_list, config_path=config['config_path'])
+    embs = pie_compute_embedding(ibs, aid_list, config_path=config['config_path'],
+        augmentation_seed=config['augmentation_seed'])
     for aid, emb in zip(aid_list, embs):
         yield (np.array(emb),)
 
@@ -155,15 +158,16 @@ def pie_embedding_depc(depc, aid_list, config=_DEFAULT_CONFIG_DICT):
 # TODO: delete the generated files in dbpath when we're done computing embeddings
 @register_ibs_method
 def pie_compute_embedding(
-    ibs, aid_list, config_path=_DEFAULT_CONFIG, output_dir=None, prefix=None, export=False
+    ibs, aid_list, config_path=_DEFAULT_CONFIG, output_dir=None, prefix=None, export=False, augmentation_seed=None,
 ):
-    preproc_dir = ibs.pie_preprocess(aid_list)
+    preproc_dir = ibs.pie_preprocess(aid_list, config_path=config_path)
     from .compute_db import compute
 
     _ensure_model_exists(ibs, aid_list, config_path)
 
-    embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export)
+    embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export, augmentation_seed)
     embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths)
+
     return embeddings
 
 
@@ -232,7 +236,7 @@ def pie_preprocess(ibs, aid_list, config_path=_DEFAULT_CONFIG):
     output_dir = pie_preproc_dir(aid_list, config_path)
     label_file_path = os.path.join(output_dir, 'name_map.csv')
     label_file = ibs.pie_name_csv(aid_list, fpath=label_file_path)
-    image_path = ibs.imagedir
+    image_path = ibs.imgdir
     from .preproc_db import preproc
 
     dbpath = preproc(image_path, config_path, lfile=label_file, output=output_dir)

@@ -67,12 +67,13 @@ def hello():
 
 
 # This is a package-ified version of original _main_ func
-def compute(dbpath, config_path, output_dir, prefix, export=False):
+def compute(dbpath, config_path, output_dir, prefix, export=False, augmentation_seed=None):
 
     # process inputs and load default values
     with open(config_path) as config_buffer:
         config = json.loads(config_buffer.read())
 
+    # should output_dir be unique per augmentation seed?
     if output_dir is None:
         output_dir = config['prod']['embeddings']
         plugin_folder = os.path.dirname(os.path.realpath(__file__))
@@ -136,7 +137,7 @@ def compute(dbpath, config_path, output_dir, prefix, export=False):
 
     # Compute embeddings
     print('Computing embeddings and saving as csv in {}'.format(output_dir))
-    db_preds = mymodel.preproc_predict(db_imgs, config['train']['batch_size'])
+    db_preds = mymodel.preproc_predict(db_imgs, config['train']['batch_size'], augmentation_seed)
     # db_preds appears to be just the embeddings. So we can hook in here and export them
 
     if export:
