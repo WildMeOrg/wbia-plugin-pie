@@ -467,6 +467,8 @@ def average_pie_name_score_dicts(list_of_name_score_dicts):
 
 @register_ibs_method
 def aid_scores_from_name_scores(ibs, name_score_dict, daid_list):
+    import utool as ut
+    ut.embed()
     daid_name_list = list(_db_labels_for_pie(ibs, daid_list))
 
     name_count_dict = {name: daid_name_list.count(name)
@@ -548,6 +550,7 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, query_a
         >>>     assert diff < 1e-6
     """
     # now get the embeddings into the shape and type PIE expects
+    print("pie_predict_light called")
     db_embs = ibs.pie_embedding(daid_list, config_path, augmentation_seed=db_aug_seed)
     query_emb = ibs.pie_embedding([qaid], config_path, augmentation_seed=query_aug_seed)
     db_labels = _db_labels_for_pie(ibs, daid_list)
