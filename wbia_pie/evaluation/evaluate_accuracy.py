@@ -78,7 +78,7 @@ def evaluate_1_vs_all(
     return dict(zip(k_list, acc_runs)), dict(zip(k_list, std_runs))
 
 
-def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, nearest_neighbors_cache_path=None):
+def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None):
     '''Predict k nearest solutions for test embeddings based on labelled database embeddings.
     Input:
     db_emb: 2D float array (num_emb, emb_size): database embeddings
@@ -99,12 +99,11 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, nearest_neighbors_cache_path
         cache_filepath = None
     else:
         from six.moves import cPickle as pickle  # NOQA
-        import utool as ut
-        ut.embed()
 
         assert os.path.exists(nearest_neighbors_cache_path)
 
-        db_data = list(zip(db_emb, db_lbls))
+        db_emb_hash = list(map(ut.hash_data, db_emb))
+        db_data = list(zip(db_emb_hash, db_lbls))
         db_data = sorted(db_data)
         db_data = '%s' % (db_data, )
         db_data_hash = ut.hash_data(db_data)
@@ -130,7 +129,7 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, nearest_neighbors_cache_path
         assert nn_classifier is not None
         print('[pie] Creating new K Nearest Neighbors cache at: %r' % (cache_filepath, ))
         with open(cache_filepath, 'wb') as pickle_file:
-            pickle.dump(nn_classifier, cache_filepath)
+            pickle.dump(nn_classifier, pickle_file)
         print('[pie] pie cache saved!')
 
     # Predict nearest neighbors and distances for test embeddings
