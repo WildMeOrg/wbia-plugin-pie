@@ -561,7 +561,7 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, query_a
     from .predict import pred_light
 
     nearest_neighbors_cache_path = os.path.join(ibs.cachedir, 'pie_neighbors')
-    ut.ensure(nearest_neighbors_cache_path)
+    ut.ensuredir(nearest_neighbors_cache_path)
 
     ans = pred_light(query_emb, db_embs, db_labels, config_path, n_results,
                      nearest_neighbors_cache_path=nearest_neighbors_cache_path)
@@ -589,7 +589,7 @@ def pie_predict_light_2(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
     from .predict import pred_light
 
     nearest_neighbors_cache_path = os.path.join(ibs.cachedir, 'pie_neighbors')
-    ut.ensure(nearest_neighbors_cache_path)
+    ut.ensuredir(nearest_neighbors_cache_path)
 
     ans = pred_light(query_emb, db_embs, db_labels, config_path,
                      nearest_neighbors_cache_path=nearest_neighbors_cache_path)
@@ -605,7 +605,7 @@ def pie_predict(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, display=False
     from .predict import predict
 
     nearest_neighbors_cache_path = os.path.join(ibs.cachedir, 'pie_neighbors')
-    ut.ensure(nearest_neighbors_cache_path)
+    ut.ensuredir(nearest_neighbors_cache_path)
 
     ans = predict(impath, config, config_path, display,
                   nearest_neighbors_cache_path=nearest_neighbors_cache_path)
