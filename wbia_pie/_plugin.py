@@ -596,7 +596,7 @@ def pie_predict(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, display=False
 
     from .predict import predict
 
-    nearest_neighbors_cache_path = os.path.join(ibs.cachedir, 'nearest_neighbors_cache_path')
+    nearest_neighbors_cache_path = os.path.join(ibs.cachedir, 'pie_neighbors')
     ut.ensure(nearest_neighbors_cache_path)
 
     ans = predict(impath, config, config_path, display, nearest_neighbors_cache_path=nearest_neighbors_cache_path)
