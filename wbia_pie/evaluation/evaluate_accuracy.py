@@ -78,7 +78,7 @@ def evaluate_1_vs_all(
     return dict(zip(k_list, acc_runs)), dict(zip(k_list, std_runs))
 
 
-def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None):
+def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None, nearest_neighbors_cache_path=None):
     '''Predict k nearest solutions for test embeddings based on labelled database embeddings.
     Input:
     db_emb: 2D float array (num_emb, emb_size): database embeddings
@@ -98,6 +98,7 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None):
     if nearest_neighbors_cache_path is None:
         cache_filepath = None
     else:
+        import utool as ut
         from six.moves import cPickle as pickle  # NOQA
 
         assert os.path.exists(nearest_neighbors_cache_path)
