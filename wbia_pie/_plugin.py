@@ -44,7 +44,6 @@ _DEFAULT_CONFIG_DICT = {'config_path': _DEFAULT_CONFIG}
 MODEL_URLS = {
     'mobula_birostris': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'mobula_alfredi': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
-    'manta_ray_giant': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
     'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5,',
     'right_whale_head': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5,',
@@ -468,8 +467,8 @@ def average_pie_name_score_dicts(list_of_name_score_dicts):
 
 @register_ibs_method
 def aid_scores_from_name_scores(ibs, name_score_dict, daid_list):
-    import utool as ut
-    ut.embed()
+    # import utool as ut
+    # ut.embed()
     daid_name_list = list(_db_labels_for_pie(ibs, daid_list))
 
     name_count_dict = {name: daid_name_list.count(name)
@@ -477,6 +476,9 @@ def aid_scores_from_name_scores(ibs, name_score_dict, daid_list):
 
     name_annotwise_score_dict = {name: name_score_dict[name] / name_count_dict[name]
         for name in name_score_dict.keys()}
+
+    from collections import defaultdict
+    name_annotwise_score_dict = defaultdict(float, name_annotwise_score_dict)
 
     # bc daid_name_list is in the same order as daid_list
     daid_scores = [name_annotwise_score_dict[name] for name in daid_name_list]
