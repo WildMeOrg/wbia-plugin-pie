@@ -339,10 +339,12 @@ def predict(
     return ans_dict
 
 
-def pred_light(query_embedding, db_embeddings, db_labels, config_path, n_results=10):
+def pred_light(query_embedding, db_embeddings, db_labels, config_path, n_results=10,
+               nearest_neighbors_cache_path=None):
     # Fit nearest neighbours classifier
     neigh_lbl_un, neigh_ind_un, neigh_dist_un = predict_k_neigh(
-        db_embeddings, db_labels, query_embedding, k=n_results
+        db_embeddings, db_labels, query_embedding, k=n_results,
+        nearest_neighbors_cache_path=nearest_neighbors_cache_path
     )
 
     neigh_lbl_un = neigh_lbl_un[0]
