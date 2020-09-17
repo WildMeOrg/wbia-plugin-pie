@@ -113,9 +113,11 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, nearest_neighbors_cache_path
 
     nn_classifier = None
     if cache_filepath is not None and os.path.exists(cache_filepath):
+        print('[pie] Found existing K Nearest Neighbors cache at: %r' % (cache_filepath, ))
         try:
             with open(cache_filepath, 'rb') as pickle_file:
                 nn_classifier = pickle.load(pickle_file)
+            print('[pie] pie cache loaded!')
         except Exception:
             nn_classifier = None
 
@@ -125,8 +127,10 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, nearest_neighbors_cache_path
 
     if cache_filepath is not None and not os.path.exists(cache_filepath):
         assert nn_classifier is not None
+        print('[pie] Creating new K Nearest Neighbors cache at: %r' % (cache_filepath, ))
         with open(cache_filepath, 'wb') as pickle_file:
             pickle.dump(nn_classifier, cache_filepath)
+        print('[pie] pie cache saved!')
 
     # Predict nearest neighbors and distances for test embeddings
     neigh_dist, neigh_ind = nn_classifier.kneighbors(test_emb)
