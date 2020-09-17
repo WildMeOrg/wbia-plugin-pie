@@ -77,6 +77,7 @@ def predict(
     output_dir=None,
     gtruth_path=None,
     skip_illustration=True,
+    nearest_neighbors_cache_path=None,
 ):
     # Check input parameters
     if not os.path.isfile(img_path):
@@ -246,7 +247,8 @@ def predict(
 
     # Fit nearest neighbours classifier
     neigh_lbl_un, neigh_ind_un, neigh_dist_un = predict_k_neigh(
-        db_embs, db_lbls, embedding, k=10
+        db_embs, db_lbls, embedding, k=10,
+        nearest_neighbors_cache_path=nearest_neighbors_cache_path
     )
 
     # print(neigh_lbl_un, neigh_ind_un, neigh_dist_un)
