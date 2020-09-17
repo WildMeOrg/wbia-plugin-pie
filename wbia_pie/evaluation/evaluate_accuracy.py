@@ -119,6 +119,7 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None):
                 nn_classifier = pickle.load(pickle_file)
             print('[pie] pie cache loaded!')
         except Exception:
+            print('[pie] pie cache failed to load!')
             nn_classifier = None
 
     if nn_classifier is None:
