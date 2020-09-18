@@ -1,4 +1,4 @@
-aetomylaeus_bovinus# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function
 import utool as ut
 import numpy as np
