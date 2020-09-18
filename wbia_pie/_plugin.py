@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+aetomylaeus_bovinus# -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function
 import utool as ut
 import numpy as np
@@ -45,6 +45,7 @@ MODEL_URLS = {
     'mobula_alfredi': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'manta_ray_giant': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
+    'aetomylaeus_bovinus': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'whale_humpback': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
 }
 
