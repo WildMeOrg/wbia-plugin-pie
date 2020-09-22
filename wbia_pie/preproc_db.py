@@ -114,7 +114,7 @@ def preproc_worker(arguments):
         if respond == 'next':
             print('Skipped file {}'.format(file))
             # do not include this image in the dataset
-            continue
+            return proc_count
         if respond == 'save' and md.done:
             proc_count += 1
             square = config['model']['input_width'] == config['model']['input_height']
