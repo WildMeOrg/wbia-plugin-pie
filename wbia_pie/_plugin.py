@@ -45,7 +45,7 @@ MODEL_URLS = {
     'mobula_birostris': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'mobula_alfredi': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
-    'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5,',
+    'right_whale+head': 'https://wildbookiarep∂ository.azureedge.net/models/pie.whale_humpback.h5,',
     'right_whale_head': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5,',
 }
 
@@ -1513,10 +1513,10 @@ def pie_apply_names(ibs, aid_list):
     ibs.set_annot_name_texts(nameless_aids, nameless_names)
 
 
-def _pie_accuracy(ibs, qaid, daid_list):
+def _pie_accuracy(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
     daids = daid_list.copy()
     daids.remove(qaid)
-    ans = ibs.pie_predict_light(qaid, daids)
+    ans = ibs.pie_predict_light(qaid, daids, config_path=config_path)
     ans_names = [row['label'] for row in ans]
     ground_truth = ibs.get_annot_name_texts(qaid)
     try:
@@ -1537,15 +1537,16 @@ def _count_dict(item_list):
 
 
 @register_ibs_method
-def pie_mass_accuracy(ibs, aid_list, daid_list=None):
+def pie_accuracy(ibs, aid_list, daid_list=None, config_path=_DEFAULT_CONFIG):
     if daid_list is None:
         daid_list = aid_list
-    ranks = [_pie_accuracy(ibs, aid, daid_list) for aid in aid_list]
-    return ranks
+    ranks = [_pie_accuracy(ibs, aid, daid_list, config_path) for aid in aid_list]
+    accs = ibs.accuracy_at_k(ranks)
+    return accs
 
 
 @register_ibs_method
-def accuracy_at_k(ibs, ranks, max_rank=10):
+def accuracy_at_k(ibs, ranks, max_rank=12):
     counts = [ranks.count(i) for i in range(1, max_rank + 1)]
     percent_counts = [count / len(ranks) for count in counts]
     cumulative_percent = [
