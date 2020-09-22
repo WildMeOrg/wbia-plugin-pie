@@ -114,6 +114,9 @@ def compute(dbpath, config_path, output_dir, prefix, export=False, augmentation_
         connect_layer=config['model']['connect_layer'],
         train_from_layer=config['model']['train_from_layer'],
         loss_func=config['model']['loss'],
+        weights='imagenet',
+        optimizer=config['model'].get('optimizer', 'adam'),
+        use_dropout=config['model'].get('use_dropout', False),
     )
     print('model_args  = %s' % model_args)
 

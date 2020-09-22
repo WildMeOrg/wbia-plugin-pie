@@ -283,7 +283,10 @@ class BaseModel(object):
         for sid, eid in batch_idx:
             if use_augmentation:
                 # [0] found experimentally
-                preproc = aug_gen.flow(imgs[sid:eid], batch_size=batch_size, seed=augmentation_seed)[0]
+                preproc = aug_gen.flow(imgs[sid:eid], batch_size=batch_size, seed=augmentation_seed)
+                assert len(preproc) == 1
+                assert len(preproc[0]) == batch_size
+                preproc = preproc[0]
             else:
                 preproc = self.backend_class.normalize(imgs[sid:eid])
             imgs_preds[sid:eid] = self.model.predict_on_batch(preproc)
