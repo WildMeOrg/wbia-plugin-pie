@@ -168,7 +168,7 @@ def pie_compute_embedding(
     _ensure_model_exists(ibs, aid_list, config_path)
 
     embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export, augmentation_seed)
-    embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths)
+    embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths, config_path)
 
     return embeddings
 
@@ -196,14 +196,18 @@ def _ensure_model_exists(ibs, aid_list, config_path):
     return True
 
 
-def fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths):
+def fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths, config_path):
     filepaths = [_get_parent_dir_and_fname_only(fpath) for fpath in filepaths]
     # PIE messes with extensions, so throw those away
     filepaths = [os.path.splitext(fp)[0] for fp in filepaths]
 
     names = ibs.get_annot_name_texts(aid_list)
-    fnames = ibs.get_annot_image_paths(aid_list)
-    fnames = [os.path.split(fname)[1] for fname in fnames]
+
+    with open(config_path, 'r') as f:
+        pie_config = json.load(f)
+
+    chip_paths = pie_annot_training_chip_fpaths(ibs, aid_list, pie_config)
+    fnames = [os.path.split(fname)[1] for fname in chip_paths]
     aid_filepaths = [os.path.join(name, fname) for name, fname in zip(names, fnames)]
     # PIE messes with extensions, so throw those away
     aid_filepaths = [os.path.splitext(fp)[0] for fp in aid_filepaths]
@@ -237,11 +241,11 @@ def _get_parent_dir_and_fname_only(fpath):
 def pie_preprocess(ibs, aid_list, config_path=_DEFAULT_CONFIG):
     output_dir = pie_preproc_dir(aid_list, config_path)
     label_file_path = os.path.join(output_dir, 'name_map.csv')
-    label_file = ibs.pie_name_csv(aid_list, fpath=label_file_path)
-    image_path = ibs.imgdir
+    label_file = ibs.pie_name_csv(aid_list, fpath=label_file_path, config_path=config_path)
+    chip_path = os.path.join(ibs.cachedir, 'extern_chips')
     from .preproc_db import preproc
 
-    dbpath = preproc(image_path, config_path, lfile=label_file, output=output_dir)
+    dbpath = preproc(chip_path, config_path, lfile=label_file, output=output_dir)
     return dbpath
 
 
@@ -262,11 +266,15 @@ def pie_preproc_dir(aid_list, config_path=_DEFAULT_CONFIG):
 
 # PIE's preproc and embed funcs require a .csv file linking filnames to labels (names)
 @register_ibs_method
-def pie_name_csv(ibs, aid_list, fpath=None):
+def pie_name_csv(ibs, aid_list, fpath=None, config_path=_DEFAULT_CONFIG):
     if fpath is None:
         fpath = os.path.join(_PLUGIN_FOLDER, 'examples/dev/name_map.csv')
     name_texts = ibs.get_annot_name_texts(aid_list)
-    fnames = ibs.get_annot_image_paths(aid_list)
+
+    with open(config_path) as config_buffer:
+        config = json.loads(config_buffer.read())
+
+    fnames = pie_annot_training_chip_fpaths(ibs, aid_list, config)
     # only want final, file part of fpaths
     fnames = [fname.split('/')[-1] for fname in fnames]
     csv_dicts = [{'file': f, 'label': l} for (f, l) in zip(fnames, name_texts)]
