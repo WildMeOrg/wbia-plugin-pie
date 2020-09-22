@@ -140,7 +140,7 @@ def compute(dbpath, config_path, output_dir, prefix, export=False, augmentation_
 
     # Compute embeddings
     print('Computing embeddings and saving as csv in {}'.format(output_dir))
-    db_preds = mymodel.preproc_predict(db_imgs, config['train']['batch_size'], augmentation_seed)
+    db_preds = mymodel.preproc_predict(db_imgs, 1024, augmentation_seed)
     # db_preds appears to be just the embeddings. So we can hook in here and export them
 
     if export:

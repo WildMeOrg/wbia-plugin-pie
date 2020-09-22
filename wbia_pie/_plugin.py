@@ -146,13 +146,13 @@ class PieEmbeddingConfig(dt.Config):  # NOQA
     coltypes=[np.ndarray],
     configclass=PieEmbeddingConfig,
     fname='pie',
-    chunksize=128,
+    chunksize=1024,
 )
 @register_ibs_method
 def pie_embedding_depc(depc, aid_list, config):
     ibs = depc.controller
     embs = pie_compute_embedding(ibs, aid_list, config_path=config['config_path'],
-        augmentation_seed=config['augmentation_seed'])
+                                 augmentation_seed=config['augmentation_seed'])
     for aid, emb in zip(aid_list, embs):
         yield (np.array(emb),)
 
