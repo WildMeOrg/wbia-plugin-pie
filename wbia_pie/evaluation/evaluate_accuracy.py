@@ -100,6 +100,7 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None, nearest_neighbors_ca
     else:
         import utool as ut
         from six.moves import cPickle as pickle  # NOQA
+        import utool as ut
 
         assert os.path.exists(nearest_neighbors_cache_path)
 
