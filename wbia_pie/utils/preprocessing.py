@@ -311,7 +311,7 @@ def read_dataset(
         (head, tail) = os.path.split(file)
         (subhead, subtail) = os.path.split(head)
         subfolder = subtail
-        if not subfolder in class_dict:
+        if subfolder not in class_dict:
             class_dict[subfolder] = label_count
             label_count += 1
 
@@ -341,7 +341,7 @@ def read_dataset(
 def split_classes(
     dataset, labels, test_size=0.15, seed=None, return_mask=False, split_num=-1
 ):
-    '''Split dataset and labels into train and validation without class overlap
+    """Split dataset and labels into train and validation without class overlap
 
     Input:
     -----------
@@ -352,7 +352,7 @@ def split_classes(
     Returns:
     ---------
     dataset_t, labels_t, dataset_v, labels_v
-    '''
+    """
     dataset_len = dataset.shape[0]
     print('Splitting dataset of size: {}'.format(dataset_len))
     unique_lbls = list(np.unique(labels))

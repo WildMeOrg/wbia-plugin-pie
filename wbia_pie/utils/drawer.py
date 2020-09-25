@@ -13,7 +13,7 @@ WHITE = [255, 255, 255]
 
 
 class MaskDrawer(object):
-    '''Draw a mask on a image'''
+    """Draw a mask on a image"""
 
     def __init__(self, filename, maskfilename):
         self.filename = filename
@@ -42,7 +42,7 @@ class MaskDrawer(object):
 
         if event == cv2.EVENT_MOUSEMOVE:
             # Store coordinates of mouse movement in array
-            if self.drawing == True:
+            if self.drawing is True:
                 cv2.circle(self.img, (x, y), self.thickness, WHITE, -1)
                 self.points.append((x, y))
 
@@ -54,7 +54,7 @@ class MaskDrawer(object):
             self.points.append((x, y))
 
         elif event == cv2.EVENT_LBUTTONUP:
-            if self.drawing == True:
+            if self.drawing is True:
                 self.drawing = False
                 self.done = True
                 cv2.circle(self.img, (x, y), self.thickness, WHITE, -1)

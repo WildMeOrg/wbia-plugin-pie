@@ -1,24 +1,14 @@
 # -*- coding: utf-8 -*-
-import os
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator
 import keras.backend as K
 from keras.optimizers import Adam
 from scipy.special import comb
 
-import sys
-
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))  # models subdir
-sys.path.append(
-    os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-)  # adds package folder to sys.path
-from base_model import BaseModel
-from tensorflow_losses import triplet_semihard_loss, lifted_struct_loss
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/utils')
-from utils import plot_model_loss_csv
-
-from evaluation.metrics import distance
+from .base_model import BaseModel
+from ..utils.tensorflow_losses import triplet_semihard_loss, lifted_struct_loss
+from ..utils import plot_model_loss_csv
+from ..evaluation.metrics import distance
 
 
 class TripletLoss(BaseModel):
@@ -54,7 +44,7 @@ class TripletLoss(BaseModel):
     def compile_model(
         self, learning_rate, margin=0.5, weights=[1.0, 1.0], loss_func=None
     ):
-        '''Compile the model'''
+        """Compile the model"""
         loss_func = loss_func or self.loss_func
         optimizer = Adam(
             lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0

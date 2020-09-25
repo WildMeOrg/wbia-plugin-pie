@@ -57,7 +57,7 @@ class TripletLossPoseInv(BaseModel):
             self.model.summary()
 
     def compile_model(self, lr, margin=0.5, weights=[1.0, 1.0], loss_func=None):
-        '''Compile the model'''
+        """Compile the model"""
         loss_func = loss_func or self.loss_func
         optimizer = Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
         if loss_func == 'triplet_loss_mult':

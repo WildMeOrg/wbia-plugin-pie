@@ -110,8 +110,7 @@ def distance(embeddings1, embeddings2, distance_metric=0):
 
 
 def contrastive_loss(y_true, y_pred, margin=1.0):
-    """Contrastive loss for the Siamese architecture.
-    """
+    """Contrastive loss for the Siamese architecture."""
     return K.mean(
         (1.0 - y_true) * K.square(y_pred)
         + y_true * K.square(K.maximum(margin - y_pred, 0))
