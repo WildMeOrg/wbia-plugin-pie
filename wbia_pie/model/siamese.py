@@ -1,19 +1,15 @@
 # -*- coding: utf-8 -*-
-import os
 import numpy as np
 from keras.models import Model
 from keras.layers import Input, Lambda
 from keras.preprocessing.image import ImageDataGenerator
-from base_model import BaseModel
 import keras.backend as K
 from keras.optimizers import Adam
 from scipy.special import comb
 
-import sys
-
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-from evaluation.metrics import contrastive_loss
-from utils.utils import make_batches, plot_model_loss_acc_csv
+from .base_model import BaseModel
+from ..evaluation.metrics import contrastive_loss
+from ..utils.utils import make_batches, plot_model_loss_acc_csv
 
 
 class Siamese(BaseModel):
@@ -50,7 +46,7 @@ class Siamese(BaseModel):
             self.top_model.summary()
 
     def siamese_block(self):
-        '''Siamese block. Connects two copies of a shared model. Currently uses only L2 distance function.'''
+        """Siamese block. Connects two copies of a shared model. Currently uses only L2 distance function."""
         print('Constructing Siamese model...')
         image_a = Input(shape=self.input_shape, name='input_a')
         image_b = Input(shape=self.input_shape, name='input_b')
@@ -65,7 +61,7 @@ class Siamese(BaseModel):
         return Model([image_a, image_b], out, name='out_siamese')
 
     def compile_model(self, learning_rate, loss_func=None):
-        '''Compile the model'''
+        """Compile the model"""
         loss_func = loss_func or self.loss_func
         optimizer = Adam(
             lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0

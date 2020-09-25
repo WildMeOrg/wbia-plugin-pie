@@ -1,25 +1,18 @@
 # -*- coding: utf-8 -*-
-import os
 import numpy as np
 from keras.models import Model
+from keras.callbacks import EarlyStopping, ModelCheckpoint, CSVLogger
 
-import sys
-
-# print("before")
-# print(sys.path)
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/utils')
-from backend import (
+from .backend import (
     DummyNetFeature,
     InceptionV3Feature,
     VGG16Feature,
     ResNet50Feature,
     MobileNetV2Feature,
 )
-from backend import InceptionResNetV2Feature
-from utils import make_batches
-from top_models import glob_pool_norm, glob_pool, glob_softmax
-from keras.callbacks import EarlyStopping, ModelCheckpoint, CSVLogger
+from .backend import InceptionResNetV2Feature
+from ..utils import make_batches
+from .top_models import glob_pool_norm, glob_pool, glob_softmax
 
 
 class BaseModel(object):
@@ -83,7 +76,7 @@ class BaseModel(object):
         self.feature_extractor = self.backend_class.feature_extractor
 
     def normalize_input(self, image):
-        '''Normalise input to a CNN depending on a backend'''
+        """Normalise input to a CNN depending on a backend"""
         return self.backend_class.normalize(image)
 
     def backend_model(self):
@@ -143,7 +136,7 @@ class BaseModel(object):
 
     def get_connect_layer(self, connect_layer):
         """If connect_layer is a string (layer name), return layer index.
-           If connect layer is a negative integer, return positive layer index."""
+        If connect layer is a negative integer, return positive layer index."""
         index = None
         if isinstance(connect_layer, str):
             for idx, layer in enumerate(self.feature_extractor.layers):
@@ -167,7 +160,7 @@ class BaseModel(object):
 
     def get_train_from_layer(self, train_from_layer):
         """If train_from_layer is a string (layer name), return layer index.
-           If train_from_layer layer is a negative integer, return positive layer index."""
+        If train_from_layer layer is a negative integer, return positive layer index."""
         index = None
         if isinstance(train_from_layer, str):
             for idx, layer in enumerate(self.feature_extractor.layers):

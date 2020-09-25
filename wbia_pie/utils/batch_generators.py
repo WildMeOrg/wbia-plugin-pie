@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
-import os, random
+import random
+
 import numpy as np
 from sklearn.utils import shuffle
 from keras.preprocessing.image import ImageDataGenerator, NumpyArrayIterator
 from skimage import transform
 from keras_preprocessing.image.affine_transformations import apply_affine_transform
 
-import sys
-
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-from utils.utils import rgb2gray
+from .utils import rgb2gray
 
 
 class BatchGenerator:
@@ -184,21 +182,21 @@ class BatchGenerator:
 
 
 def randomProjection(variation, image_size, random_seed=None):
-    '''Generate geometrical projection by defining transformation of 4 points
-       ------
-       Input:
-       variation:    percentage (in decimal notation from 0 to 1)
-                     relative size of a circle region where centre is projected
+    """Generate geometrical projection by defining transformation of 4 points
+    ------
+    Input:
+    variation:    percentage (in decimal notation from 0 to 1)
+                  relative size of a circle region where centre is projected
 
-       image_size:   integer
-                     size of image in pixels
-       random_seed:  integer
-                     initialize internal state of the random number generator
-       ------
-       Return:
-       tform:        object from skimage.transromf
+    image_size:   integer
+                  size of image in pixels
+    random_seed:  integer
+                  initialize internal state of the random number generator
+    ------
+    Return:
+    tform:        object from skimage.transromf
 
-    '''
+    """
     d = image_size * variation
 
     if random_seed is not None:
@@ -255,8 +253,7 @@ def projective_transformation(img, var=0.15, random_seed=None):
 
 
 class PairsImageDataGenerator(ImageDataGenerator):
-    """Generate minibatches of image PAIRS data with real-time data augmentation.
-    """
+    """Generate minibatches of image PAIRS data with real-time data augmentation."""
 
     def flow(
         self,
@@ -269,8 +266,7 @@ class PairsImageDataGenerator(ImageDataGenerator):
         save_prefix='',
         save_format='png',
     ):
-        """Generate minibatches of image pairs from a numpy array
-        """
+        """Generate minibatches of image pairs from a numpy array"""
         return PairsNumpyArrayIterator(
             x,
             y,
@@ -383,7 +379,7 @@ class PairsNumpyArrayIterator(NumpyArrayIterator):
             batch_pair_labels += [0, 1]
 
         # Shuffle pairs and labels in unison
-        if self.shuffle == True:
+        if self.shuffle is True:
             batch_pairs, batch_pair_labels, batch_classes = shuffle(
                 batch_pairs, batch_pair_labels, batch_classes, random_state=local_seed
             )
@@ -408,7 +404,7 @@ class PairsNumpyArrayIterator(NumpyArrayIterator):
 
     def __next__(self):
         """Returns
-            The next batch with classes.
+        The next batch with classes.
         """
         # Keeps under lock only the mechanism which advances
         # the indexing of each batch.
