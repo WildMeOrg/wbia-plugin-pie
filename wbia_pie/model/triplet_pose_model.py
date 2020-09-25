@@ -159,7 +159,7 @@ class TripletLossPoseInv(BaseModel):
         else:
             n_pairs = int(sample_size)
 
-        embeddings = np.zeros(shape=(2, n_pairs,) + features_shape)
+        embeddings = np.zeros(shape=(2, n_pairs) + features_shape)
         actual_issame = np.full(shape=(n_pairs,), fill_value=True, dtype=np.bool)
 
         # Create all possible combinations of images (no repeats)
