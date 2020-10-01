@@ -45,9 +45,16 @@ MODEL_URLS = {
     'mobula_birostris': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'mobula_alfredi': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
-    'right_whale+head': 'https://wildbookiarep∂ository.azureedge.net/models/pie.whale_humpback.h5,',
-    'right_whale_head': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5,',
+    'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
 }
+
+# for L/R features (e.g. right whale lateral head callosities, maybe zebra stripes) that were trained on *only* L photos,
+# we need to mirror right photos in the backend so they all look left. We also don't compare L vs R because patterns aren't symmetrical
+FLIP_RIGHTSIDE_MODELS = {'right_whale_head', 'right_whale+head'}
+RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
+    'right',
+    'r',
+]
 
 
 @register_ibs_method
@@ -274,7 +281,7 @@ def pie_name_csv(ibs, aid_list, fpath=None, config_path=_DEFAULT_CONFIG):
     with open(config_path) as config_buffer:
         config = json.loads(config_buffer.read())
 
-    fnames = ibs.pie_annot_training_chip_fpaths(, aid_list, config)
+    fnames = ibs.pie_annot_embedding_chip_fpaths(aid_list, config)
     # only want final, file part of fpaths
     fnames = [fname.split('/')[-1] for fname in fnames]
     csv_dicts = [{'file': f, 'label': l} for (f, l) in zip(fnames, name_texts)]
@@ -792,6 +799,53 @@ def pie_annot_training_chip_fpaths(ibs, aid_list, pie_config):
     }
 
     fpaths = ibs.get_annot_chip_fpath(aid_list, ensure=True, config2_=chip_config)
+    return fpaths
+
+
+# same as training_chip_fpaths, except mirroring right-side photos if necessary
+@register_ibs_method
+def pie_annot_embedding_chip_fpaths(ibs, aid_list, pie_config):
+    width  = int(pie_config['model']['input_width'])
+    height = int(pie_config['model']['input_height'])
+
+    chip_config = {
+        'dim_size': (width, height),
+        'resize_dim': 'wh',
+        'ext': '.png',  ## example images are .png
+    }
+
+    # flip right images if necessary
+    species = ibs.get_annot_species_texts(aid_list[0])
+    flip_list = [False] * len(aid_list)
+    if species in FLIP_RIGHTSIDE_MODELS:
+        viewpoint_list = ibs.get_annot_viewpoints(aid_list)
+        viewpoint_list = [
+            None if viewpoint is None else viewpoint.lower()
+            for viewpoint in viewpoint_list
+        ]
+        flip_list = [viewpoint in RIGHT_FLIP_LIST for viewpoint in viewpoint_list]
+
+    flip_aids = ut.compress(aid_list, flip_list)
+    unflipped_aids = ut.compress(aid_list, [not flip for flip in flip_list])
+
+    flip_config = chip_config.copy()
+    flip_config['flip_horizontal'] = True
+
+    flip_fpaths = ibs.get_annot_chip_fpath(flip_aids, ensure=True, config2_=flip_config)
+    unlflipped_fpaths = ibs.get_annot_chip_fpath(unflipped_aids, ensure=True, config2_=chip_config)
+
+    # maybe not pythonic, but it works! (untested) (lol)
+    flip_index = 0
+    unflipped_index = 0
+    fpaths = []
+    for flip in flip_list:
+        if flip:
+            fpaths.append(flip_fpaths[flip_index])
+            flip_index += 1
+        else:
+            fpaths.append(unflipped_fpaths[unflipped_index])
+            unflipped_index += 1
+
     return fpaths
 
 
