@@ -1,7 +1,7 @@
 {
     "model" : {
         "type":                 "TripletLoss",
-        "backend":              "DenseNet201",
+        "backend":              "MobileNetV2",
         "connect_layer":        -1,
         "precomp_feat":         false,
         "frontend":             "glob_pool",
