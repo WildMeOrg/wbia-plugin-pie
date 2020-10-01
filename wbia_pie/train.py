@@ -127,7 +127,7 @@ def train(config, split_num=-1):
             valid_labels = to_categorical(valid_labels)
     else:
         print('No test set. Splitting train set...')
-        imgs, labels, label_dict = read_dataset(os.path.join(plugin_folder, config['data']['train_image_folder']))
+        imgs, labels, label_dict, fnames = read_dataset(os.path.join(plugin_folder, config['data']['train_image_folder']), return_filenames=True)
         print('Label encoding: ', label_dict)
         if config['model']['type'] in ('TripletLoss', 'TripletPose', 'Siamese'):
             train_imgs, train_labels, valid_imgs, valid_labels = split_classes(
@@ -151,6 +151,10 @@ def train(config, split_num=-1):
 
     analyse_dataset(train_imgs, train_labels, 'train')
     analyse_dataset(valid_imgs, valid_labels, 'valid')
+
+    # good place to inspect the training images here. Might want to comment out del images and del labels above
+    # import utool as ut
+    # ut.embed()
 
     ##############################
     #   Construct the model
@@ -393,6 +397,10 @@ def train(config, split_num=-1):
                 move_to_db=config['evaluate']['move_to_dataset'],
                 k_list=config['evaluate']['accuracy_at_k'],
             )
+
+            # good place to inspect training accuracy here
+            # import utool as ut
+            # ut.embed()
 
             # Calc execution time for each iteration
             iterationTime = datetime.now() - startTrainingTime

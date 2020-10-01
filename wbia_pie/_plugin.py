@@ -206,7 +206,7 @@ def fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths, config_path):
     with open(config_path, 'r') as f:
         pie_config = json.load(f)
 
-    chip_paths = pie_annot_training_chip_fpaths(ibs, aid_list, pie_config)
+    chip_paths = ibs.pie_annot_training_chip_fpaths(aid_list, pie_config)
     fnames = [os.path.split(fname)[1] for fname in chip_paths]
     aid_filepaths = [os.path.join(name, fname) for name, fname in zip(names, fnames)]
     # PIE messes with extensions, so throw those away
@@ -274,7 +274,7 @@ def pie_name_csv(ibs, aid_list, fpath=None, config_path=_DEFAULT_CONFIG):
     with open(config_path) as config_buffer:
         config = json.loads(config_buffer.read())
 
-    fnames = pie_annot_training_chip_fpaths(ibs, aid_list, config)
+    fnames = ibs.pie_annot_training_chip_fpaths(, aid_list, config)
     # only want final, file part of fpaths
     fnames = [fname.split('/')[-1] for fname in fnames]
     csv_dicts = [{'file': f, 'label': l} for (f, l) in zip(fnames, name_texts)]
@@ -773,13 +773,14 @@ def _prepare_training_images(ibs, aid_list, pie_config):
 
     # copy resized annot chips into name-based subfolders
     names = ibs.get_annot_name_texts(aid_list)
-    chip_paths = pie_annot_training_chip_fpaths(ibs, aid_list, pie_config)
+    chip_paths = ibs.pie_annot_training_chip_fpaths(aid_list, pie_config)
     for (aid, name, fpath) in zip(aid_list, names, chip_paths):
         name_dir = os.path.join(target_dir, name)
         os.makedirs(name_dir, exist_ok=True)
         shutil.copy(fpath, name_dir)
 
 
+@register_ibs_method
 def pie_annot_training_chip_fpaths(ibs, aid_list, pie_config):
     width  = int(pie_config['model']['input_width'])
     height = int(pie_config['model']['input_height'])
