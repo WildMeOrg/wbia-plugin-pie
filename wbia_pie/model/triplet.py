@@ -2,7 +2,7 @@
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator
 import keras.backend as K
-from keras.optimizers import Adam
+from keras.optimizers import Adam, SGD
 from scipy.special import comb
 
 from .base_model import BaseModel
@@ -23,6 +23,8 @@ class TripletLoss(BaseModel):
         distance='l2',
         loss_func='semi_hard_triplet',
         weights='imagenet',
+        optimizer='adam',
+        use_dropout=False,
         show_summary=True,
     ):
         self.loss_func = loss_func
@@ -35,6 +37,8 @@ class TripletLoss(BaseModel):
             train_from_layer,
             distance,
             weights,
+            optimizer,
+            use_dropout,
         )
         self.model = self.top_model
         if show_summary:
@@ -46,9 +50,19 @@ class TripletLoss(BaseModel):
     ):
         """Compile the model"""
         loss_func = loss_func or self.loss_func
-        optimizer = Adam(
-            lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0
-        )
+
+        print('Using optimizer: %r' % (self.optimizer, ))
+        if self.optimizer == 'adam':
+            optimizer = Adam(
+                lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0
+            )
+        elif self.optimizer == 'sgd':
+            optimizer = SGD(
+                lr=learning_rate, momentum=0.9, nesterov=True
+            )
+        else:
+            raise ValueError('self.optimizer is not recognized')
+
         if self.loss_func == 'semi_hard_triplet':
             self.model.compile(loss=triplet_semihard_loss, optimizer=optimizer)
         elif self.loss_func == 'lifted_struct_loss':

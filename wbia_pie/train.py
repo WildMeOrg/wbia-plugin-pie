@@ -1,30 +1,56 @@
 # -*- coding: utf-8 -*-
-import argparse, os, sys, json
+import os
+import argparse
+import json
+import sys
 import matplotlib
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+
+import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(len(gpus), 'Physical GPUs,', len(logical_gpus), 'Logical GPUs')
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
+
+import keras
+# import tensorflow as tf
+gpu_options = tf.compat.v1.GPUOptions(allow_growth=True)
+sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=gpu_options))
+keras.backend.tensorflow_backend.set_session(sess)
+
 import numpy as np
 from math import ceil
 from datetime import datetime
+
+# trying to fix train bug
 from keras.preprocessing.image import ImageDataGenerator
 import keras.backend as K
 from keras.utils import to_categorical
 
-from model.triplet import TripletLoss
-from model.siamese import Siamese
-from model.triplet_pose_model import TripletLossPoseInv
-from model.classification_model import Classification
-from utils.batch_generators import BatchGenerator, PairsImageDataGenerator
-from utils.preprocessing import (
+from .model.triplet import TripletLoss
+from .model.siamese import Siamese
+from .model.triplet_pose_model import TripletLossPoseInv
+from .model.classification_model import Classification
+from .utils.batch_generators import BatchGenerator, PairsImageDataGenerator
+from .utils.preprocessing import (
     read_dataset,
     analyse_dataset,
     split_classes,
     split_classification,
 )
-from utils.utils import print_nested, save_res_csv
-from evaluation.evaluate_accuracy import evaluate_1_vs_all
+from .utils.utils import print_nested, save_res_csv
+from .evaluation.evaluate_accuracy import evaluate_1_vs_all
 
 argparser = argparse.ArgumentParser(
     description='Train and validate a model on any dataset'
@@ -42,23 +68,18 @@ argparser.add_argument(
 )
 
 
-def _main_(args):
+def train(config, split_num=-1):
 
     # Record start time:
     startTime = datetime.now()
 
     ###############################
-    #  Read config with parameters and command line params
-    ###############################
-    config_path = args.conf
-    with open(config_path) as config_buffer:
-        config = json.loads(config_buffer.read())
-    split_num = args.split_num
-
-    ###############################
     #  Create folders for logs
     ###############################
-    exp_folder = os.path.join(config['train']['exp_dir'], config['train']['exp_id'])
+    plugin_folder = os.path.dirname(os.path.realpath(__file__))
+    # note: below line saves training log inside plugin folder
+    exp_folder = os.path.join(plugin_folder, config['train']['exp_dir'], config['train']['exp_id'])
+
     if split_num >= 0:
         exp_folder = exp_folder + '-split-' + str(split_num)
     if not os.path.exists(exp_folder):
@@ -68,9 +89,9 @@ def _main_(args):
     #  Redirect print output to logs
     ###############################
     FULL_PRINT_LOG = os.path.join(exp_folder, 'full_print_output.log')
-
     if config['general']['stdout-file']:
-        sys.stdout = open(FULL_PRINT_LOG, 'a+')
+        print('Sending subsequent printouts to %s' % FULL_PRINT_LOG)
+        # sys.stdout = open(FULL_PRINT_LOG, 'a+')
     print('=' * 40)
     print(
         'Date: {} / Experiment id: {}'.format(datetime.now(), config['train']['exp_id'])
@@ -106,7 +127,7 @@ def _main_(args):
             valid_labels = to_categorical(valid_labels)
     else:
         print('No test set. Splitting train set...')
-        imgs, labels, label_dict = read_dataset(config['data']['train_image_folder'])
+        imgs, labels, label_dict, fnames = read_dataset(os.path.join(plugin_folder, config['data']['train_image_folder']), return_filenames=True)
         print('Label encoding: ', label_dict)
         if config['model']['type'] in ('TripletLoss', 'TripletPose', 'Siamese'):
             train_imgs, train_labels, valid_imgs, valid_labels = split_classes(
@@ -131,6 +152,10 @@ def _main_(args):
     analyse_dataset(train_imgs, train_labels, 'train')
     analyse_dataset(valid_imgs, valid_labels, 'valid')
 
+    # good place to inspect the training images here. Might want to comment out del images and del labels above
+    # import utool as ut
+    # ut.embed()
+
     ##############################
     #   Construct the model
     ##############################
@@ -145,6 +170,8 @@ def _main_(args):
         train_from_layer=config['model']['train_from_layer'],
         loss_func=config['model']['loss'],
         weights='imagenet',
+        optimizer=config['model'].get('optimizer', 'adam'),
+        use_dropout=config['model'].get('use_dropout', False),
     )
 
     if config['model']['type'] == 'TripletLoss':
@@ -174,7 +201,7 @@ def _main_(args):
         mymodel.load_weights(SAVED_WEIGHTS)
         warm_up_flag = False
     elif os.path.exists(PRETRAINED_WEIGHTS):
-        warm_up_flag == False
+        warm_up_flag = False
     else:
         print('No pre-trained weights are found')
         warm_up_flag = True
@@ -203,23 +230,42 @@ def _main_(args):
             fill_mode='nearest',
             preprocessing_function=mymodel.backend_class.normalize,
         )
+    elif config['train']['aug_rate'] == 'right-whale':
+        gen_args = dict(
+            rotation_range=30,
+            width_shift_range=0.15,
+            height_shift_range=0.15,
+            shear_range=0.1,
+            zoom_range=0.15,
+            channel_shift_range=0.15,
+            data_format=K.image_data_format(),
+            fill_mode='reflect',
+            preprocessing_function=mymodel.backend_class.normalize,
+        )
     else:
         raise Exception('Define augmentation rate in config!')
 
     if config['model']['type'] == 'TripletLoss':
-        gen = ImageDataGenerator(**gen_args)
+        train_gen = ImageDataGenerator(**gen_args)
+        val_gen_args = dict(
+            data_format=K.image_data_format(),
+            preprocessing_function=mymodel.backend_class.normalize,
+        )
+        val_gen = ImageDataGenerator(**val_gen_args)
         train_generator = BatchGenerator(
             train_imgs,
             train_labels,
-            aug_gen=gen,
+            aug_gen=train_gen,
             p=config['train']['cl_per_batch'],
             k=config['train']['sampl_per_class'],
             equal_k=config['train']['equal_k'],
+            perspective=False,
         )
+        # Note! perspective used to be True, JP said to try false
         valid_generator = BatchGenerator(
             valid_imgs,
             valid_labels,
-            aug_gen=gen,
+            aug_gen=val_gen,
             p=config['train']['cl_per_batch'],
             k=config['train']['sampl_per_class'],
             equal_k=config['train']['equal_k'],
@@ -271,7 +317,7 @@ def _main_(args):
     ###############################
     LOGS_FILE = os.path.join(exp_folder, 'history.csv')
     PLOT_FILE = os.path.join(exp_folder, 'plot.png')
-    ALL_EXP_LOG = os.path.join(config['train']['exp_dir'], 'experiments_all.csv')
+    ALL_EXP_LOG = os.path.join(exp_folder, 'experiments_all.csv')
 
     n_iter = ceil(config['train']['nb_epochs'] / config['train']['log_step'])
 
@@ -292,7 +338,7 @@ def _main_(args):
         mymodel.warm_up_train(
             train_gen=train_generator,
             valid_gen=valid_generator,
-            nb_epochs=1,
+            nb_epochs=10,
             batch_size=config['train']['batch_size'],
             learning_rate=config['train']['learning_rate'] * 10,
             steps_per_epoch=steps_per_epoch,
@@ -352,14 +398,19 @@ def _main_(args):
                 k_list=config['evaluate']['accuracy_at_k'],
             )
 
+            # good place to inspect training accuracy here
+            # import utool as ut
+            # ut.embed()
+
             # Calc execution time for each iteration
             iterationTime = datetime.now() - startTrainingTime
             print('Iteration {} finished, time {}'.format(iteration + 1, iterationTime))
 
             # Collect data for logs
             result = dict()
+            result['iteration'] = iteration
             result['date_time'] = datetime.now()
-            result['config'] = config_path
+            result['config'] = config
             result['experiment_id'] = exp_folder
             result['iteration_time'] = iterationTime
             result['images'] = config['data']['train_image_folder']
@@ -393,6 +444,14 @@ def _main_(args):
     mymodel.model.save_weights(TEMP_WEIGHTS)
 
 
-if __name__ == '__main__':
+if __name__ == '_train_':
+    ###############################
+    #  Read config with parameters and command line params
+    ###############################
     args = argparser.parse_args()
-    _main_(args)
+    config_path = args.conf
+    with open(config_path) as config_buffer:
+        config = json.loads(config_buffer.read())
+    split_num = args.split_num
+
+    train(config, split_num)

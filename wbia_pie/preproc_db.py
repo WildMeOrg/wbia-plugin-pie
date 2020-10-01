@@ -55,6 +55,8 @@ import json
 from .utils.preprocessing import crop_im_by_mask, resize_imgs, convert_to_fmt
 from .utils.drawer import MaskDrawer
 from .utils.utils import str2bool
+import concurrent.futures
+import tqdm
 
 argparser = argparse.ArgumentParser(description='Prepare database from the data')
 
@@ -92,6 +94,45 @@ argparser.add_argument(
     default=0,
     help='Index (number) of file to resume the process. Zero based. Useful for large folders',
 )
+
+
+def preproc_worker(arguments):
+    file, config, size, draw, output_dir, = arguments
+
+    print('Processing file {}'.format(file))
+    proc_count = 0
+
+    if draw:
+        # Get filename for mask
+        (_, imname) = os.path.split(file)
+        maskpath = os.path.join(output_dir, imname)
+        md = MaskDrawer(file, maskpath)
+        respond = md.run()
+        if respond == 'exit':
+            print('Exiting the programm')
+            quit()
+        if respond == 'next':
+            print('Skipped file {}'.format(file))
+            # do not include this image in the dataset
+            return proc_count
+        if respond == 'save' and md.done:
+            proc_count += 1
+            square = config['model']['input_width'] == config['model']['input_height']
+            croppedpath = crop_im_by_mask(
+                file, maskpath, output_dir, padding=0, square=square
+            )
+        if respond == 'save' and not md.done:
+            proc_count += 1
+            croppedpath = file
+    else:
+        proc_count += 1
+        croppedpath = file
+    # Resize to the size and convert to png format
+    resizedpath = resize_imgs(croppedpath, output_dir, size)
+    resizedpath = convert_to_fmt(resizedpath, imformat='png')
+    # print('Processed {} images'.format(proc_count))
+
+    return proc_count
 
 
 def preproc(impath, config_path, lfile=None, draw=None, output=None, start_index=0):
@@ -168,45 +209,27 @@ def preproc(impath, config_path, lfile=None, draw=None, output=None, start_index
 
     size = (config['model']['input_width'], config['model']['input_height'])
 
-    # Count processed images
-    proc_count = 0
-
     # Sort order of the files
     files.sort()
 
-    # Draw mask on each file and save
-    for i in range(start_index, len(files)):
-        file = files[i]
-        print('Processing file {} {}'.format(i, file))
-        if draw:
-            # Get filename for mask
-            (_, imname) = os.path.split(file)
-            maskpath = os.path.join(output_dir, imname)
-            md = MaskDrawer(file, maskpath)
-            respond = md.run()
-            if respond == 'exit':
-                print('Exiting the programm')
-                quit()
-            if respond == 'next':
-                print('Skipped file {} {}'.format(i, file))
-                # do not include this image in the dataset
-                continue
-            if respond == 'save' and md.done:
-                proc_count += 1
-                square = config['model']['input_width'] == config['model']['input_height']
-                croppedpath = crop_im_by_mask(
-                    file, maskpath, output_dir, padding=0, square=square
-                )
-            if respond == 'save' and not md.done:
-                proc_count += 1
-                croppedpath = file
-        else:
-            proc_count += 1
-            croppedpath = file
-        # Resize to the size and convert to png format
-        resizedpath = resize_imgs(croppedpath, output_dir, size)
-        resizedpath = convert_to_fmt(resizedpath, imformat='png')
-        print('Processed {} images'.format(proc_count))
+    files = files[start_index:]
+    num_files = len(files)
+    arguments_list = list(zip(
+        files,
+        [config] * num_files,
+        [size] * num_files,
+        [draw] * num_files,
+        [output_dir] * num_files,
+
+    ))
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        proc_count_list = list(
+            tqdm.tqdm(
+                executor.map(preproc_worker, arguments_list),
+                total=len(arguments_list),
+            )
+        )
+    proc_count = sum(proc_count_list)
 
     print('Total processed {} images'.format(proc_count))
 

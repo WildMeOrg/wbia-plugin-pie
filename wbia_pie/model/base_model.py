@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 from keras.models import Model
+from keras.preprocessing.image import ImageDataGenerator
+import keras.backend as K
+from tensorflow.keras.callbacks import Callback
+
 from keras.callbacks import EarlyStopping, ModelCheckpoint, CSVLogger
 
 from .backend import (
@@ -9,10 +13,147 @@ from .backend import (
     VGG16Feature,
     ResNet50Feature,
     MobileNetV2Feature,
+    DenseNet121Feature,
+    DenseNet201Feature,
+    # EfficientNetB2Feature,
 )
-from .backend import InceptionResNetV2Feature
-from ..utils import make_batches
-from .top_models import glob_pool_norm, glob_pool, glob_softmax
+from backend import InceptionResNetV2Feature
+from utils import make_batches
+from top_models import glob_pool_norm, glob_pool, glob_softmax
+from keras.callbacks import EarlyStopping, ModelCheckpoint, CSVLogger
+import keras.backend as K
+
+
+class CyclicLR(Callback):
+    """This callback implements a cyclical learning rate policy (CLR).
+    The method cycles the learning rate between two boundaries with
+    some constant frequency, as detailed in this paper (https://arxiv.org/abs/1506.01186).
+    The amplitude of the cycle can be scaled on a per-iteration or
+    per-cycle basis.
+    This class has three built-in policies, as put forth in the paper.
+    "triangular":
+        A basic triangular cycle w/ no amplitude scaling.
+    "triangular2":
+        A basic triangular cycle that scales initial amplitude by half each cycle.
+    "exp_range":
+        A cycle that scales initial amplitude by gamma**(cycle iterations) at each
+        cycle iteration.
+    For more detail, please see paper.
+
+    # Example
+        ```python
+            clr = CyclicLR(base_lr=0.001, max_lr=0.006,
+                                step_size=2000., mode='triangular')
+            model.fit(X_train, Y_train, callbacks=[clr])
+        ```
+
+    Class also supports custom scaling functions:
+        ```python
+            clr_fn = lambda x: 0.5*(1+np.sin(x*np.pi/2.))
+            clr = CyclicLR(base_lr=0.001, max_lr=0.006,
+                                step_size=2000., scale_fn=clr_fn,
+                                scale_mode='cycle')
+            model.fit(X_train, Y_train, callbacks=[clr])
+        ```
+    # Arguments
+        base_lr: initial learning rate which is the
+            lower boundary in the cycle.
+        max_lr: upper boundary in the cycle. Functionally,
+            it defines the cycle amplitude (max_lr - base_lr).
+            The lr at any cycle is the sum of base_lr
+            and some scaling of the amplitude; therefore
+            max_lr may not actually be reached depending on
+            scaling function.
+        step_size: number of training iterations per
+            half cycle. Authors suggest setting step_size
+            2-8 x training iterations in epoch.
+        mode: one of {triangular, triangular2, exp_range}.
+            Default 'triangular'.
+            Values correspond to policies detailed above.
+            If scale_fn is not None, this argument is ignored.
+        gamma: constant in 'exp_range' scaling function:
+            gamma**(cycle iterations)
+        scale_fn: Custom scaling policy defined by a single
+            argument lambda function, where
+            0 <= scale_fn(x) <= 1 for all x >= 0.
+            mode paramater is ignored
+        scale_mode: {'cycle', 'iterations'}.
+            Defines whether scale_fn is evaluated on
+            cycle number or cycle iterations (training
+            iterations since start of cycle). Default is 'cycle'.
+    """
+
+    def __init__(self, base_lr=0.001, max_lr=0.006, step_size=2000., mode='triangular',
+                 gamma=1., scale_fn=None, scale_mode='cycle'):
+        super(CyclicLR, self).__init__()
+
+        self.base_lr = base_lr
+        self.max_lr = max_lr
+        self.step_size = step_size
+        self.mode = mode
+        self.gamma = gamma
+        if scale_fn is None:
+            if self.mode == 'triangular':
+                self.scale_fn = lambda x: 1.
+                self.scale_mode = 'cycle'
+            elif self.mode == 'triangular2':
+                self.scale_fn = lambda x: 1 / (2.**(x - 1))
+                self.scale_mode = 'cycle'
+            elif self.mode == 'exp_range':
+                self.scale_fn = lambda x: gamma**(x)
+                self.scale_mode = 'iterations'
+        else:
+            self.scale_fn = scale_fn
+            self.scale_mode = scale_mode
+        self.clr_iterations = 0.
+        self.trn_iterations = 0.
+        self.history = {}
+
+        self._reset()
+
+    def _reset(self, new_base_lr=None, new_max_lr=None,
+               new_step_size=None):
+        """Resets cycle iterations.
+        Optional boundary/step size adjustment.
+        """
+        if new_base_lr is not None:
+            self.base_lr = new_base_lr
+        if new_max_lr is not None:
+            self.max_lr = new_max_lr
+        if new_step_size is not None:
+            self.step_size = new_step_size
+        self.clr_iterations = 0.
+
+    def clr(self):
+        cycle = np.floor(1 + self.clr_iterations / (2 * self.step_size))
+        x = np.abs(self.clr_iterations / self.step_size - 2 * cycle + 1)
+        if self.scale_mode == 'cycle':
+            return self.base_lr + (self.max_lr - self.base_lr) * np.maximum(0, (1 - x)) * self.scale_fn(cycle)
+        else:
+            return self.base_lr + (self.max_lr - self.base_lr) * np.maximum(0, (1 - x)) * self.scale_fn(self.clr_iterations)
+
+    def on_train_begin(self, logs={}):
+        logs = logs or {}
+
+        if self.clr_iterations == 0:
+            K.set_value(self.model.optimizer.lr, self.base_lr)
+        else:
+            K.set_value(self.model.optimizer.lr, self.clr())
+
+    def on_batch_end(self, epoch, logs=None):
+
+        logs = logs or {}
+        self.trn_iterations += 1
+        self.clr_iterations += 1
+
+        self.history.setdefault('lr', []).append(K.get_value(self.model.optimizer.lr))
+        self.history.setdefault('iterations', []).append(self.trn_iterations)
+
+        for k, v in logs.items():
+            self.history.setdefault(k, []).append(v)
+
+        K.set_value(self.model.optimizer.lr, self.clr())
+
 
 
 class BaseModel(object):
@@ -26,6 +167,8 @@ class BaseModel(object):
         train_from_layer=0,
         distance='l2',
         weights='imagenet',
+        optimizer='adam',
+        use_dropout=False,
     ):
         """Base model consists of backend feature extractor (pretrained model) and a front-end model.
 
@@ -44,6 +187,8 @@ class BaseModel(object):
         self.input_shape = input_shape
         self.embedding_size = embedding_size
         self.weights = weights
+        self.optimizer = optimizer
+        self.use_dropout = use_dropout
         self.backend = backend
         self.frontend = frontend
         self.feature_extractor()
@@ -68,9 +213,15 @@ class BaseModel(object):
             self.backend_class = DummyNetFeature(self.input_shape, self.weights)
         elif self.backend == 'MobileNetV2':
             self.backend_class = MobileNetV2Feature(self.input_shape, self.weights)
+        elif self.backend == 'DenseNet121':
+            self.backend_class = DenseNet121Feature(self.input_shape, self.weights)
+        elif self.backend == 'DenseNet201':
+            self.backend_class = DenseNet201Feature(self.input_shape, self.weights)
+        # elif self.backend == 'EfficientNetB2':
+        #     self.backend_class = EfficientNetB2Feature(self.input_shape, self.weights)
         else:
             raise Exception(
-                'Architecture is not supported! Use only MobileNet, VGG16, ResNet50, and Inception3.'
+                'Architecture is not supported! Use only MobileNet, VGG16, ResNet50, DenseNet201, and Inception3.'
             )
 
         self.feature_extractor = self.backend_class.feature_extractor
@@ -91,7 +242,7 @@ class BaseModel(object):
         self.features_shape = self.backend_model.get_output_shape_at(0)[1:]
         print('Shape of base features: {}'.format(self.features_shape))
 
-    def preproc_predict(self, imgs, batch_size=32):
+    def preproc_predict(self, imgs, batch_size=32, augmentation_seed=None):
         """Preprocess images and predict with the model (no batch processing for first step)
         Input:
         imgs: 4D float or int array of images
@@ -106,8 +257,32 @@ class BaseModel(object):
         imgs_preds = np.zeros((imgs.shape[0],) + self.model.get_output_shape_at(0)[1:])
         print('Computing predictions with the shape {}'.format(imgs_preds.shape))
 
+        # do some augmentation here
+        use_augmentation = augmentation_seed is not None
+        print('use_augmentation = %s and augmentation_seed = %s' % (use_augmentation, augmentation_seed))
+        if use_augmentation:
+            gen_args = dict(
+                rotation_range=30,
+                width_shift_range=0.15,
+                height_shift_range=0.15,
+                shear_range=0.1,
+                zoom_range=0.15,
+                channel_shift_range=0.15,
+                data_format=K.image_data_format(),
+                fill_mode='reflect',
+                preprocessing_function=self.backend_class.normalize,
+            )
+            aug_gen = ImageDataGenerator(**gen_args)
+
         for sid, eid in batch_idx:
-            preproc = self.backend_class.normalize(imgs[sid:eid])
+            if use_augmentation:
+                # [0] found experimentally
+                preproc = aug_gen.flow(imgs[sid:eid], batch_size=batch_size, seed=augmentation_seed)
+                assert len(preproc) == 1
+                assert len(preproc[0]) <= batch_size
+                preproc = preproc[0]
+            else:
+                preproc = self.backend_class.normalize(imgs[sid:eid])
             imgs_preds[sid:eid] = self.model.predict_on_batch(preproc)
 
         print('imgs_preds = %s' % imgs_preds)
@@ -122,7 +297,7 @@ class BaseModel(object):
             )
         elif self.frontend == 'glob_pool':
             self.top_model = glob_pool(
-                embedding_size=self.embedding_size, backend_model=self.backend_model
+                embedding_size=self.embedding_size, backend_model=self.backend_model, use_dropout=self.use_dropout
             )
         elif self.frontend == 'glob_softmax':
             self.top_model = glob_softmax(
@@ -218,14 +393,19 @@ class BaseModel(object):
         print('Freezeing layers before warm-up training')
         for i in range(backend_model_len):
             self.top_model.layers[i].trainable = False
-        for layer in self.top_model.layers:
-            print(layer.name, layer.trainable)
+        # for layer in self.top_model.layers:
+            # print(layer.name, layer.trainable)
 
         # Compile the model
         self.compile_model(learning_rate)
 
         # Warm-up training
         csv_logger = CSVLogger(logs_file, append=True)
+        callbacks = [csv_logger]
+
+        if self.optimizer == 'sgd':
+            clr = CyclicLR(base_lr=learning_rate, max_lr=0.0001, step_size=2000., mode='triangular2')
+            callbacks.append(clr)
 
         self.model.fit_generator(
             generator=train_gen,
@@ -234,7 +414,10 @@ class BaseModel(object):
             verbose=2 if debug else 1,
             validation_data=valid_gen,
             validation_steps=steps_per_epoch // 5 + 1,
-            callbacks=[csv_logger],
+            callbacks=callbacks,
+            max_queue_size=32,
+            workers=21,
+            use_multiprocessing=False,
         )
 
         self.top_model.save_weights(saved_weights_name)
@@ -266,7 +449,7 @@ class BaseModel(object):
         # Make a few callbacks
         early_stop = EarlyStopping(
             monitor='val_loss',
-            patience=5,  # changed from 3
+            patience=20,  # changed from 5 h/t JP  # changed from 3
             min_delta=0.001,
             mode='min',
             verbose=1,
@@ -281,6 +464,11 @@ class BaseModel(object):
             period=1,
         )
         csv_logger = CSVLogger(logs_file, append=True)
+        callbacks = [early_stop, checkpoint, csv_logger]
+
+        if self.optimizer == 'sgd':
+            clr = CyclicLR(base_lr=learning_rate, max_lr=0.006, step_size=2000., mode='triangular2')
+            callbacks.append(clr)
 
         ############################################
         # Start the training process
@@ -292,7 +480,10 @@ class BaseModel(object):
             verbose=1 if debug else 2,
             validation_data=valid_gen,
             validation_steps=steps_per_epoch // 5 + 1,
-            callbacks=[early_stop, checkpoint, csv_logger],
+            callbacks=callbacks,
+            max_queue_size=32,
+            workers=21,
+            use_multiprocessing=False,
         )
 
     def precompute_features(self, imgs, batch_size):

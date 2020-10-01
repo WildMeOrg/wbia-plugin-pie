@@ -7,7 +7,10 @@ from keras.preprocessing.image import ImageDataGenerator, NumpyArrayIterator
 from skimage import transform
 from keras_preprocessing.image.affine_transformations import apply_affine_transform
 
-from .utils import rgb2gray
+import sys
+
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+from utils import rgb2gray
 
 
 class BatchGenerator:

@@ -12,10 +12,13 @@ from keras.layers import (
     Dense,
     Lambda,
 )
-from keras.applications.mobilenet_v2 import MobileNetV2
-from keras.applications.vgg16 import VGG16, preprocess_input
+from keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input as mobilenetv2_preprocess_input
+from keras.applications.vgg16 import VGG16
 from keras.applications.resnet50 import ResNet50
-from keras.applications import InceptionResNetV2, DenseNet121, InceptionV3
+from keras.applications.densenet import DenseNet121, preprocess_input as densenet121_preprocess_input
+from keras.applications.densenet import DenseNet201, preprocess_input as densenet201_preprocess_input
+# from keras.applications.efficientnet import EfficientNetB2, preprocess_input as efficientnetb2_preprocess_input
+from keras.applications import InceptionResNetV2, InceptionV3
 
 
 class BaseFeatureExtractor(object):
@@ -109,9 +112,16 @@ class MobileNetV2Feature(BaseFeatureExtractor):
         )
 
     def normalize(self, image):
-        image = image / 128.0
-        image = image - 1.0
-        return image.astype(np.float32)
+        # image = image / 128.0
+        # image = image - 1.0
+        # return image.astype(np.float32)
+
+        image = image[..., ::-1]
+        image = image.astype('float32')
+
+        image = mobilenetv2_preprocess_input(image)
+
+        return image
 
 
 class VGG16Feature(BaseFeatureExtractor):
@@ -124,7 +134,7 @@ class VGG16Feature(BaseFeatureExtractor):
 
     def normalize(self, image):
         image = image[..., ::-1]
-        image = image.astype('float')
+        image = image.astype('float32')
 
         image[..., 0] -= 103.939
         image[..., 1] -= 116.779
@@ -143,7 +153,7 @@ class ResNet50Feature(BaseFeatureExtractor):
 
     def normalize(self, image):
         image = image[..., ::-1]
-        image = image.astype('float')
+        image = image.astype('float32')
 
         image[..., 0] -= 103.939
         image[..., 1] -= 116.779
@@ -153,3 +163,63 @@ class ResNet50Feature(BaseFeatureExtractor):
 
     def preprocess_imgs(self, imgs):
         return self.normalize(imgs)
+
+
+class DenseNet121Feature(BaseFeatureExtractor):
+    """ResNet50 model pretrained on Imagenet with the last pooling layer removed"""
+
+    def __init__(self, input_shape, weights):
+        self.feature_extractor = DenseNet121(
+            input_shape=input_shape, include_top=False, weights=weights
+        )
+
+    def normalize(self, image):
+        image = image[..., ::-1]
+        image = image.astype('float32')
+
+        image = densenet121_preprocess_input(image)
+
+        return image
+
+    def preprocess_imgs(self, imgs):
+        return self.normalize(imgs)
+
+
+class DenseNet201Feature(BaseFeatureExtractor):
+    """ResNet50 model pretrained on Imagenet with the last pooling layer removed"""
+
+    def __init__(self, input_shape, weights):
+        self.feature_extractor = DenseNet201(
+            input_shape=input_shape, include_top=False, weights=weights
+        )
+
+    def normalize(self, image):
+        image = image[..., ::-1]
+        image = image.astype('float32')
+
+        image = densenet201_preprocess_input(image)
+
+        return image
+
+    def preprocess_imgs(self, imgs):
+        return self.normalize(imgs)
+
+
+# class EfficientNetB2Feature(BaseFeatureExtractor):
+#     """ResNet50 model pretrained on Imagenet with the last pooling layer removed"""
+
+#     def __init__(self, input_shape, weights):
+#         self.feature_extractor = EfficientNetB2(
+#             input_shape=input_shape, include_top=False, weights=weights
+#         )
+
+#     def normalize(self, image):
+#         image = image[..., ::-1]
+#         image = image.astype('float32')
+
+#         image = efficientnetb2_preprocess_input(image)
+
+#         return image
+
+#     def preprocess_imgs(self, imgs):
+#         return self.normalize(imgs)

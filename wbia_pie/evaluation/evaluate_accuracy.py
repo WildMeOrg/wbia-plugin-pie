@@ -24,6 +24,7 @@ def evaluate_1_vs_all(
     mean_accuracy_1, mean_accuracy_5, mean_accuracy_10
     """
     print('Computing top-k accuracy for k=', k_list)
+    # k_list is good
     if isinstance(k_list, int):
         k_list = [k_list]
 
@@ -34,6 +35,7 @@ def evaluate_1_vs_all(
     # Evaluate accuracy at different k over a multiple runs. Report average results.
     acc = {k: [] for k in k_list}
     map_dict = {k: [] for k in k_list}
+    max_k = max(k_list)
 
     for i in range(n_eval_runs):
         neigh_lbl_run = []
@@ -43,7 +45,7 @@ def evaluate_1_vs_all(
         print('Number of classes in query set: ', len(db_emb))
 
         for j in range(len(db_emb)):
-            neigh_lbl_un, _, _ = predict_k_neigh(db_emb[j], db_lbl[j], query_emb[j], k=10)
+            neigh_lbl_un, _, _ = predict_k_neigh(db_emb[j], db_lbl[j], query_emb[j], k=max_k)
             neigh_lbl_run.append(neigh_lbl_un)
 
         query_lbl = flatten(query_lbl)
@@ -75,8 +77,8 @@ def evaluate_1_vs_all(
     return dict(zip(k_list, acc_runs)), dict(zip(k_list, std_runs))
 
 
-def predict_k_neigh(db_emb, db_lbls, test_emb, k=5):
-    """Predict k nearest solutions for test embeddings based on labelled database embeddings.
+def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None, nearest_neighbors_cache_path=None):
+    '''Predict k nearest solutions for test embeddings based on labelled database embeddings.
     Input:
     db_emb: 2D float array (num_emb, emb_size): database embeddings
     db_lbls: 1D array, string or floats: database labels
@@ -89,9 +91,48 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5):
     neigh_dist_un - 2d float array of shape [len(test_emb), k] distances of predictions
     """
     # Set number of nearest points (with duplicated labels)
+
     k_w_dupl = min(50, len(db_emb))
-    nn_classifier = NearestNeighbors(n_neighbors=k_w_dupl, metric='euclidean')
-    nn_classifier.fit(db_emb, db_lbls)
+
+    if nearest_neighbors_cache_path is None:
+        cache_filepath = None
+    else:
+        import utool as ut
+        from six.moves import cPickle as pickle  # NOQA
+        import utool as ut
+
+        assert os.path.exists(nearest_neighbors_cache_path)
+
+        db_emb_hash = list(map(ut.hash_data, db_emb))
+        db_data = list(zip(db_emb_hash, db_lbls))
+        db_data = sorted(db_data)
+        db_data = '%s' % (db_data, )
+        db_data_hash = ut.hash_data(db_data)
+        args = (len(db_emb), db_data_hash, k_w_dupl, )
+        cache_filename = 'pie-kneigh-num-%d-hash-%s-k-%d.cPkl' % args
+        cache_filepath = os.path.join(nearest_neighbors_cache_path, cache_filename)
+
+    nn_classifier = None
+    if cache_filepath is not None and os.path.exists(cache_filepath):
+        print('[pie] Found existing K Nearest Neighbors cache at: %r' % (cache_filepath, ))
+        try:
+            with open(cache_filepath, 'rb') as pickle_file:
+                nn_classifier = pickle.load(pickle_file)
+            print('[pie] pie cache loaded!')
+        except Exception:
+            print('[pie] pie cache failed to load!')
+            nn_classifier = None
+
+    if nn_classifier is None:
+        nn_classifier = NearestNeighbors(n_neighbors=k_w_dupl, metric='euclidean')
+        nn_classifier.fit(db_emb, db_lbls)
+
+    if cache_filepath is not None and not os.path.exists(cache_filepath):
+        assert nn_classifier is not None
+        print('[pie] Creating new K Nearest Neighbors cache at: %r' % (cache_filepath, ))
+        with open(cache_filepath, 'wb') as pickle_file:
+            pickle.dump(nn_classifier, pickle_file)
+        print('[pie] pie cache saved!')
 
     # Predict nearest neighbors and distances for test embeddings
     neigh_dist, neigh_ind = nn_classifier.kneighbors(test_emb)
@@ -142,6 +183,8 @@ def get_eval_set_one_class(train, train_lbl, test, test_lbl, move_to_db=1):
     query_list = []
     query_lbl_list = []
 
+    # import utool as ut
+    # ut.embed()
     for label in unique_lbl:
         idx_to_db = np.random.choice(
             np.where(test_lbl == label)[0], size=move_to_db, replace=False

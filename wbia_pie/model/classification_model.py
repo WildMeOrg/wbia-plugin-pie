@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 from keras.optimizers import Adam
 
-from .base_model import BaseModel
+import sys
+
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+from base_model import BaseModel
 from ..utils.utils import plot_model_loss_acc_csv
 
 
