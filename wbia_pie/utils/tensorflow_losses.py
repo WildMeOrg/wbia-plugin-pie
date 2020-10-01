@@ -14,9 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 """Implements various metric learning losses."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
@@ -43,21 +40,24 @@ except ImportError:
 def pairwise_distance(feature, squared=False):
     """Computes the pairwise distance matrix with numerical stability.
 
-  output[i, j] = || feature[i, :] - feature[j, :] ||_2
+    output[i, j] = || feature[i, :] - feature[j, :] ||_2
 
-  Args:
-    feature: 2-D Tensor of size [number of data, feature dimension].
-    squared: Boolean, whether or not to square the pairwise distances.
+    Args:
+      feature: 2-D Tensor of size [number of data, feature dimension].
+      squared: Boolean, whether or not to square the pairwise distances.
 
-  Returns:
-    pairwise_distances: 2-D Tensor of size [number of data, number of data].
-  """
-    pairwise_distances_squared = math_ops.add(
-        math_ops.reduce_sum(math_ops.square(feature), axis=[1], keepdims=True),
-        math_ops.reduce_sum(
-            math_ops.square(array_ops.transpose(feature)), axis=[0], keepdims=True
-        ),
-    ) - 2.0 * math_ops.matmul(feature, array_ops.transpose(feature))
+    Returns:
+      pairwise_distances: 2-D Tensor of size [number of data, number of data].
+    """
+    pairwise_distances_squared = (
+        math_ops.add(
+            math_ops.reduce_sum(math_ops.square(feature), axis=[1], keepdims=True),
+            math_ops.reduce_sum(
+                math_ops.square(array_ops.transpose(feature)), axis=[0], keepdims=True
+            ),
+        )
+        - 2.0 * math_ops.matmul(feature, array_ops.transpose(feature))
+    )
 
     # Deal with numerical inaccuracies. Set small negatives to zero.
     pairwise_distances_squared = math_ops.maximum(pairwise_distances_squared, 0.0)
@@ -89,23 +89,23 @@ def pairwise_distance(feature, squared=False):
 def tf_contrastive_loss(labels, embeddings_anchor, embeddings_positive, margin=1.0):
     """Computes the contrastive loss.
 
-  This loss encourages the embedding to be close to each other for
-    the samples of the same label and the embedding to be far apart at least
-    by the margin constant for the samples of different labels.
-  See: http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
+    This loss encourages the embedding to be close to each other for
+      the samples of the same label and the embedding to be far apart at least
+      by the margin constant for the samples of different labels.
+    See: http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
 
-  Args:
-    labels: 1-D tf.int32 `Tensor` with shape [batch_size] of
-      binary labels indicating positive vs negative pair.
-    embeddings_anchor: 2-D float `Tensor` of embedding vectors for the anchor
-      images. Embeddings should be l2 normalized.
-    embeddings_positive: 2-D float `Tensor` of embedding vectors for the
-      positive images. Embeddings should be l2 normalized.
-    margin: margin term in the loss definition.
+    Args:
+      labels: 1-D tf.int32 `Tensor` with shape [batch_size] of
+        binary labels indicating positive vs negative pair.
+      embeddings_anchor: 2-D float `Tensor` of embedding vectors for the anchor
+        images. Embeddings should be l2 normalized.
+      embeddings_positive: 2-D float `Tensor` of embedding vectors for the
+        positive images. Embeddings should be l2 normalized.
+      margin: margin term in the loss definition.
 
-  Returns:
-    contrastive_loss: tf.float32 scalar.
-  """
+    Returns:
+      contrastive_loss: tf.float32 scalar.
+    """
     # Get per pair distances
     distances = math_ops.sqrt(
         math_ops.reduce_sum(math_ops.square(embeddings_anchor - embeddings_positive), 1)
@@ -124,15 +124,15 @@ def tf_contrastive_loss(labels, embeddings_anchor, embeddings_positive, margin=1
 def masked_maximum(data, mask, dim=1):
     """Computes the axis wise maximum over chosen elements.
 
-  Args:
-    data: 2-D float `Tensor` of size [n, m].
-    mask: 2-D Boolean `Tensor` of size [n, m].
-    dim: The dimension over which to compute the maximum.
+    Args:
+      data: 2-D float `Tensor` of size [n, m].
+      mask: 2-D Boolean `Tensor` of size [n, m].
+      dim: The dimension over which to compute the maximum.
 
-  Returns:
-    masked_maximums: N-D `Tensor`.
-      The maximized dimension is of size 1 after the operation.
-  """
+    Returns:
+      masked_maximums: N-D `Tensor`.
+        The maximized dimension is of size 1 after the operation.
+    """
     axis_minimums = math_ops.reduce_min(data, dim, keepdims=True)
     masked_maximums = (
         math_ops.reduce_max(
@@ -146,15 +146,15 @@ def masked_maximum(data, mask, dim=1):
 def masked_minimum(data, mask, dim=1):
     """Computes the axis wise minimum over chosen elements.
 
-  Args:
-    data: 2-D float `Tensor` of size [n, m].
-    mask: 2-D Boolean `Tensor` of size [n, m].
-    dim: The dimension over which to compute the minimum.
+    Args:
+      data: 2-D float `Tensor` of size [n, m].
+      mask: 2-D Boolean `Tensor` of size [n, m].
+      dim: The dimension over which to compute the minimum.
 
-  Returns:
-    masked_minimums: N-D `Tensor`.
-      The minimized dimension is of size 1 after the operation.
-  """
+    Returns:
+      masked_minimums: N-D `Tensor`.
+        The minimized dimension is of size 1 after the operation.
+    """
     axis_maximums = math_ops.reduce_max(data, dim, keepdims=True)
     masked_minimums = (
         math_ops.reduce_min(
@@ -168,23 +168,23 @@ def masked_minimum(data, mask, dim=1):
 def triplet_semihard_loss(y_true, y_preds, margin=0.5):
     """Computes the triplet loss with semi-hard negative mining.
 
-  The loss encourages the positive distances (between a pair of embeddings with
-  the same labels) to be smaller than the minimum negative distance among
-  which are at least greater than the positive distance plus the margin constant
-  (called semi-hard negative) in the mini-batch. If no such negative exists,
-  uses the largest negative distance instead.
-  See: https://arxiv.org/abs/1503.03832.
+    The loss encourages the positive distances (between a pair of embeddings with
+    the same labels) to be smaller than the minimum negative distance among
+    which are at least greater than the positive distance plus the margin constant
+    (called semi-hard negative) in the mini-batch. If no such negative exists,
+    uses the largest negative distance instead.
+    See: https://arxiv.org/abs/1503.03832.
 
-  Args:
-    labels: 1-D tf.int32 `Tensor` with shape [batch_size] of
-      multiclass integer labels.
-    embeddings: 2-D float `Tensor` of embedding vectors. Embeddings should
-      be l2 normalized.
-    margin: Float, margin term in the loss definition.
+    Args:
+      labels: 1-D tf.int32 `Tensor` with shape [batch_size] of
+        multiclass integer labels.
+      embeddings: 2-D float `Tensor` of embedding vectors. Embeddings should
+        be l2 normalized.
+      margin: Float, margin term in the loss definition.
 
-  Returns:
-    triplet_loss: tf.float32 scalar.
-  """
+    Returns:
+      triplet_loss: tf.float32 scalar.
+    """
     labels = y_true
     embeddings = y_preds
 
@@ -266,29 +266,29 @@ def npairs_loss(
 ):
     """Computes the npairs loss.
 
-  Npairs loss expects paired data where a pair is composed of samples from the
-  same labels and each pairs in the minibatch have different labels. The loss
-  has two components. The first component is the L2 regularizer on the
-  embedding vectors. The second component is the sum of cross entropy loss
-  which takes each row of the pair-wise similarity matrix as logits and
-  the remapped one-hot labels as labels.
+    Npairs loss expects paired data where a pair is composed of samples from the
+    same labels and each pairs in the minibatch have different labels. The loss
+    has two components. The first component is the L2 regularizer on the
+    embedding vectors. The second component is the sum of cross entropy loss
+    which takes each row of the pair-wise similarity matrix as logits and
+    the remapped one-hot labels as labels.
 
-  See: http://www.nec-labs.com/uploads/images/Department-Images/MediaAnalytics/papers/nips16_npairmetriclearning.pdf
+    See: http://www.nec-labs.com/uploads/images/Department-Images/MediaAnalytics/papers/nips16_npairmetriclearning.pdf
 
-  Args:
-    labels: 1-D tf.int32 `Tensor` of shape [batch_size/2].
-    embeddings_anchor: 2-D Tensor of shape [batch_size/2, embedding_dim] for the
-      embedding vectors for the anchor images. Embeddings should not be
-      l2 normalized.
-    embeddings_positive: 2-D Tensor of shape [batch_size/2, embedding_dim] for the
-      embedding vectors for the positive images. Embeddings should not be
-      l2 normalized.
-    reg_lambda: Float. L2 regularization term on the embedding vectors.
-    print_losses: Boolean. Option to print the xent and l2loss.
+    Args:
+      labels: 1-D tf.int32 `Tensor` of shape [batch_size/2].
+      embeddings_anchor: 2-D Tensor of shape [batch_size/2, embedding_dim] for the
+        embedding vectors for the anchor images. Embeddings should not be
+        l2 normalized.
+      embeddings_positive: 2-D Tensor of shape [batch_size/2, embedding_dim] for the
+        embedding vectors for the positive images. Embeddings should not be
+        l2 normalized.
+      reg_lambda: Float. L2 regularization term on the embedding vectors.
+      print_losses: Boolean. Option to print the xent and l2loss.
 
-  Returns:
-    npairs_loss: tf.float32 scalar.
-  """
+    Returns:
+      npairs_loss: tf.float32 scalar.
+    """
     # pylint: enable=line-too-long
     # Add the regularizer on the embedding.
     reg_anchor = math_ops.reduce_mean(
@@ -333,17 +333,17 @@ def npairs_loss(
 def _build_multilabel_adjacency(sparse_labels):
     """Builds multilabel adjacency matrix.
 
-  As of March 14th, 2017, there's no op for the dot product between
-  two sparse tensors in TF. However, there is `sparse_minimum` op which is
-  equivalent to an AND op between two sparse boolean tensors.
-  This computes the dot product between two sparse boolean inputs.
+    As of March 14th, 2017, there's no op for the dot product between
+    two sparse tensors in TF. However, there is `sparse_minimum` op which is
+    equivalent to an AND op between two sparse boolean tensors.
+    This computes the dot product between two sparse boolean inputs.
 
-  Args:
-    sparse_labels: List of 1-D boolean sparse tensors.
+    Args:
+      sparse_labels: List of 1-D boolean sparse tensors.
 
-  Returns:
-    adjacency_matrix: 2-D dense `Tensor`.
-  """
+    Returns:
+      adjacency_matrix: 2-D dense `Tensor`.
+    """
     num_pairs = len(sparse_labels)
     adjacency_matrix = array_ops.zeros([num_pairs, num_pairs])
     for i in range(num_pairs):
@@ -374,37 +374,37 @@ def npairs_loss_multilabel(
 ):
     r"""Computes the npairs loss with multilabel data.
 
-  Npairs loss expects paired data where a pair is composed of samples from the
-  same labels and each pairs in the minibatch have different labels. The loss
-  has two components. The first component is the L2 regularizer on the
-  embedding vectors. The second component is the sum of cross entropy loss
-  which takes each row of the pair-wise similarity matrix as logits and
-  the remapped one-hot labels as labels. Here, the similarity is defined by the
-  dot product between two embedding vectors. S_{i,j} = f(x_i)^T f(x_j)
+    Npairs loss expects paired data where a pair is composed of samples from the
+    same labels and each pairs in the minibatch have different labels. The loss
+    has two components. The first component is the L2 regularizer on the
+    embedding vectors. The second component is the sum of cross entropy loss
+    which takes each row of the pair-wise similarity matrix as logits and
+    the remapped one-hot labels as labels. Here, the similarity is defined by the
+    dot product between two embedding vectors. S_{i,j} = f(x_i)^T f(x_j)
 
-  To deal with multilabel inputs, we use the count of label intersection
-  i.e. L_{i,j} = | set_of_labels_for(i) \cap set_of_labels_for(j) |
-  Then we normalize each rows of the count based label matrix so that each row
-  sums to one.
+    To deal with multilabel inputs, we use the count of label intersection
+    i.e. L_{i,j} = | set_of_labels_for(i) \cap set_of_labels_for(j) |
+    Then we normalize each rows of the count based label matrix so that each row
+    sums to one.
 
-  Args:
-    sparse_labels: List of 1-D Boolean `SparseTensor` of dense_shape
-                   [batch_size/2, num_classes] labels for the anchor-pos pairs.
-    embeddings_anchor: 2-D `Tensor` of shape [batch_size/2, embedding_dim] for
-      the embedding vectors for the anchor images. Embeddings should not be
-      l2 normalized.
-    embeddings_positive: 2-D `Tensor` of shape [batch_size/2, embedding_dim] for
-      the embedding vectors for the positive images. Embeddings should not be
-      l2 normalized.
-    reg_lambda: Float. L2 regularization term on the embedding vectors.
-    print_losses: Boolean. Option to print the xent and l2loss.
+    Args:
+      sparse_labels: List of 1-D Boolean `SparseTensor` of dense_shape
+                     [batch_size/2, num_classes] labels for the anchor-pos pairs.
+      embeddings_anchor: 2-D `Tensor` of shape [batch_size/2, embedding_dim] for
+        the embedding vectors for the anchor images. Embeddings should not be
+        l2 normalized.
+      embeddings_positive: 2-D `Tensor` of shape [batch_size/2, embedding_dim] for
+        the embedding vectors for the positive images. Embeddings should not be
+        l2 normalized.
+      reg_lambda: Float. L2 regularization term on the embedding vectors.
+      print_losses: Boolean. Option to print the xent and l2loss.
 
-  Returns:
-    npairs_loss: tf.float32 scalar.
-  Raises:
-    TypeError: When the specified sparse_labels is not a `SparseTensor`.
-  """
-    if False in [isinstance(l, sparse_tensor.SparseTensor) for l in sparse_labels]:
+    Returns:
+      npairs_loss: tf.float32 scalar.
+    Raises:
+      TypeError: When the specified sparse_labels is not a `SparseTensor`.
+    """
+    if False in [isinstance(la, sparse_tensor.SparseTensor) for la in sparse_labels]:
         raise TypeError(
             'sparse_labels must be a list of SparseTensors, but got %s'
             % str(sparse_labels)
@@ -451,22 +451,22 @@ def npairs_loss_multilabel(
 def lifted_struct_loss(y_true, y_preds, margin=1.0):
     """Computes the lifted structured loss.
 
-  The loss encourages the positive distances (between a pair of embeddings
-  with the same labels) to be smaller than any negative distances (between a
-  pair of embeddings with different labels) in the mini-batch in a way
-  that is differentiable with respect to the embedding vectors.
-  See: https://arxiv.org/abs/1511.06452.
+    The loss encourages the positive distances (between a pair of embeddings
+    with the same labels) to be smaller than any negative distances (between a
+    pair of embeddings with different labels) in the mini-batch in a way
+    that is differentiable with respect to the embedding vectors.
+    See: https://arxiv.org/abs/1511.06452.
 
-  Args:
-    labels: 1-D tf.int32 `Tensor` with shape [batch_size] of
-      multiclass integer labels.
-    embeddings: 2-D float `Tensor` of embedding vectors. Embeddings should not
-      be l2 normalized.
-    margin: Float, margin term in the loss definition.
+    Args:
+      labels: 1-D tf.int32 `Tensor` with shape [batch_size] of
+        multiclass integer labels.
+      embeddings: 2-D float `Tensor` of embedding vectors. Embeddings should not
+        be l2 normalized.
+      margin: Float, margin term in the loss definition.
 
-  Returns:
-    lifted_loss: tf.float32 scalar.
-  """
+    Returns:
+      lifted_loss: tf.float32 scalar.
+    """
     labels = y_true
     embeddings = y_preds
     # Reshape [batch_size] label tensor to a [batch_size, 1] label tensor.
@@ -548,14 +548,14 @@ def lifted_struct_loss(y_true, y_preds, margin=1.0):
 def update_1d_tensor(y, index, value):
     """Updates 1d tensor y so that y[index] = value.
 
-  Args:
-    y: 1-D Tensor.
-    index: index of y to modify.
-    value: new value to write at y[index].
+    Args:
+      y: 1-D Tensor.
+      index: index of y to modify.
+      value: new value to write at y[index].
 
-  Returns:
-    y_mod: 1-D Tensor. Tensor y after the update.
-  """
+    Returns:
+      y_mod: 1-D Tensor. Tensor y after the update.
+    """
     value = array_ops.squeeze(value)
     # modify the 1D tensor x at index with value.
     # ex) chosen_ids = update_1D_tensor(chosen_ids, cluster_idx, best_medoid)
@@ -568,19 +568,19 @@ def update_1d_tensor(y, index, value):
 def get_cluster_assignment(pairwise_distances, centroid_ids):
     """Assign data points to the neareset centroids.
 
-  Tensorflow has numerical instability and doesn't always choose
-    the data point with theoretically zero distance as it's nearest neighbor.
-    Thus, for each centroid in centroid_ids, explicitly assign
-    the centroid itself as the nearest centroid.
-    This is done through the mask tensor and the constraint_vect tensor.
+    Tensorflow has numerical instability and doesn't always choose
+      the data point with theoretically zero distance as it's nearest neighbor.
+      Thus, for each centroid in centroid_ids, explicitly assign
+      the centroid itself as the nearest centroid.
+      This is done through the mask tensor and the constraint_vect tensor.
 
-  Args:
-    pairwise_distances: 2-D Tensor of pairwise distances.
-    centroid_ids: 1-D Tensor of centroid indices.
+    Args:
+      pairwise_distances: 2-D Tensor of pairwise distances.
+      centroid_ids: 1-D Tensor of centroid indices.
 
-  Returns:
-    y_fixed: 1-D tensor of cluster assignment.
-  """
+    Returns:
+      y_fixed: 1-D tensor of cluster assignment.
+    """
     predictions = math_ops.argmin(
         array_ops.gather(pairwise_distances, centroid_ids), dimension=0
     )
@@ -613,13 +613,13 @@ def get_cluster_assignment(pairwise_distances, centroid_ids):
 def compute_facility_energy(pairwise_distances, centroid_ids):
     """Compute the average travel distance to the assigned centroid.
 
-  Args:
-    pairwise_distances: 2-D Tensor of pairwise distances.
-    centroid_ids: 1-D Tensor of indices.
+    Args:
+      pairwise_distances: 2-D Tensor of pairwise distances.
+      centroid_ids: 1-D Tensor of indices.
 
-  Returns:
-    facility_energy: dtypes.float32 scalar.
-  """
+    Returns:
+      facility_energy: dtypes.float32 scalar.
+    """
     return -1.0 * math_ops.reduce_sum(
         math_ops.reduce_min(array_ops.gather(pairwise_distances, centroid_ids), axis=0)
     )
@@ -628,29 +628,29 @@ def compute_facility_energy(pairwise_distances, centroid_ids):
 def compute_clustering_score(labels, predictions, margin_type):
     """Computes the clustering score via sklearn.metrics functions.
 
-  There are various ways to compute the clustering score. Intuitively,
-  we want to measure the agreement of two clustering assignments (labels vs
-  predictions) ignoring the permutations and output a score from zero to one.
-  (where the values close to one indicate significant agreement).
-  This code supports following scoring functions:
-    nmi: normalized mutual information
-    ami: adjusted mutual information
-    ari: adjusted random index
-    vmeasure: v-measure
-    const: indicator checking whether the two clusterings are the same.
-  See http://scikit-learn.org/stable/modules/classes.html#clustering-metrics
-    for the detailed descriptions.
-  Args:
-    labels: 1-D Tensor. ground truth cluster assignment.
-    predictions: 1-D Tensor. predicted cluster assignment.
-    margin_type: Type of structured margin to use. Default is nmi.
-  Returns:
-    clustering_score: dtypes.float32 scalar.
-      The possible valid values are from zero to one.
-      Zero means the worst clustering and one means the perfect clustering.
-  Raises:
-    ValueError: margin_type is not recognized.
-  """
+    There are various ways to compute the clustering score. Intuitively,
+    we want to measure the agreement of two clustering assignments (labels vs
+    predictions) ignoring the permutations and output a score from zero to one.
+    (where the values close to one indicate significant agreement).
+    This code supports following scoring functions:
+      nmi: normalized mutual information
+      ami: adjusted mutual information
+      ari: adjusted random index
+      vmeasure: v-measure
+      const: indicator checking whether the two clusterings are the same.
+    See http://scikit-learn.org/stable/modules/classes.html#clustering-metrics
+      for the detailed descriptions.
+    Args:
+      labels: 1-D Tensor. ground truth cluster assignment.
+      predictions: 1-D Tensor. predicted cluster assignment.
+      margin_type: Type of structured margin to use. Default is nmi.
+    Returns:
+      clustering_score: dtypes.float32 scalar.
+        The possible valid values are from zero to one.
+        Zero means the worst clustering and one means the perfect clustering.
+    Raises:
+      ValueError: margin_type is not recognized.
+    """
     margin_type_to_func = {
         'nmi': _compute_nmi_score,
         'ami': _compute_ami_score,
@@ -729,19 +729,19 @@ def _find_loss_augmented_facility_idx(
 ):
     """Find the next centroid that maximizes the loss augmented inference.
 
-  This function is a subroutine called from compute_augmented_facility_locations
+    This function is a subroutine called from compute_augmented_facility_locations
 
-  Args:
-    pairwise_distances: 2-D Tensor of pairwise distances.
-    labels: 1-D Tensor of ground truth cluster assignment.
-    chosen_ids: 1-D Tensor of current centroid indices.
-    candidate_ids: 1-D Tensor of candidate indices.
-    margin_multiplier: multiplication constant.
-    margin_type: Type of structured margin to use. Default is nmi.
+    Args:
+      pairwise_distances: 2-D Tensor of pairwise distances.
+      labels: 1-D Tensor of ground truth cluster assignment.
+      chosen_ids: 1-D Tensor of current centroid indices.
+      candidate_ids: 1-D Tensor of candidate indices.
+      margin_multiplier: multiplication constant.
+      margin_type: Type of structured margin to use. Default is nmi.
 
-  Returns:
-    integer index.
-  """
+    Returns:
+      integer index.
+    """
     num_candidates = array_ops.shape(candidate_ids)[0]
 
     pairwise_distances_chosen = array_ops.gather(pairwise_distances, chosen_ids)
@@ -807,16 +807,16 @@ def compute_augmented_facility_locations(
 ):
     """Computes the centroid locations.
 
-  Args:
-    pairwise_distances: 2-D Tensor of pairwise distances.
-    labels: 1-D Tensor of ground truth cluster assignment.
-    all_ids: 1-D Tensor of all data indices.
-    margin_multiplier: multiplication constant.
-    margin_type: Type of structured margin to use. Default is nmi.
+    Args:
+      pairwise_distances: 2-D Tensor of pairwise distances.
+      labels: 1-D Tensor of ground truth cluster assignment.
+      all_ids: 1-D Tensor of all data indices.
+      margin_multiplier: multiplication constant.
+      margin_type: Type of structured margin to use. Default is nmi.
 
-  Returns:
-    chosen_ids: 1-D Tensor of chosen centroid indices.
-  """
+    Returns:
+      chosen_ids: 1-D Tensor of chosen centroid indices.
+    """
 
     def func_cond_augmented(iteration, chosen_ids):
         del chosen_ids  # Unused argument in func_cond_augmented.
@@ -864,19 +864,19 @@ def update_medoid_per_cluster(
 ):
     """Updates the cluster medoid per cluster.
 
-  Args:
-    pairwise_distances: 2-D Tensor of pairwise distances.
-    pairwise_distances_subset: 2-D Tensor of pairwise distances for one cluster.
-    labels: 1-D Tensor of ground truth cluster assignment.
-    chosen_ids: 1-D Tensor of cluster centroid indices.
-    cluster_member_ids: 1-D Tensor of cluster member indices for one cluster.
-    cluster_idx: Index of this one cluster.
-    margin_multiplier: multiplication constant.
-    margin_type: Type of structured margin to use. Default is nmi.
+    Args:
+      pairwise_distances: 2-D Tensor of pairwise distances.
+      pairwise_distances_subset: 2-D Tensor of pairwise distances for one cluster.
+      labels: 1-D Tensor of ground truth cluster assignment.
+      chosen_ids: 1-D Tensor of cluster centroid indices.
+      cluster_member_ids: 1-D Tensor of cluster member indices for one cluster.
+      cluster_idx: Index of this one cluster.
+      margin_multiplier: multiplication constant.
+      margin_type: Type of structured margin to use. Default is nmi.
 
-  Returns:
-    chosen_ids: Updated 1-D Tensor of cluster centroid indices.
-  """
+    Returns:
+      chosen_ids: Updated 1-D Tensor of cluster centroid indices.
+    """
 
     def func_cond(iteration, scores_margin):
         del scores_margin  # Unused variable scores_margin.
@@ -925,17 +925,17 @@ def update_all_medoids(
 ):
     """Updates all cluster medoids a cluster at a time.
 
-  Args:
-    pairwise_distances: 2-D Tensor of pairwise distances.
-    predictions: 1-D Tensor of predicted cluster assignment.
-    labels: 1-D Tensor of ground truth cluster assignment.
-    chosen_ids: 1-D Tensor of cluster centroid indices.
-    margin_multiplier: multiplication constant.
-    margin_type: Type of structured margin to use. Default is nmi.
+    Args:
+      pairwise_distances: 2-D Tensor of pairwise distances.
+      predictions: 1-D Tensor of predicted cluster assignment.
+      labels: 1-D Tensor of ground truth cluster assignment.
+      chosen_ids: 1-D Tensor of cluster centroid indices.
+      margin_multiplier: multiplication constant.
+      margin_type: Type of structured margin to use. Default is nmi.
 
-  Returns:
-    chosen_ids: Updated 1-D Tensor of cluster centroid indices.
-  """
+    Returns:
+      chosen_ids: Updated 1-D Tensor of cluster centroid indices.
+    """
 
     def func_cond_augmented_pam(iteration, chosen_ids):
         del chosen_ids  # Unused argument.
@@ -984,20 +984,20 @@ def compute_augmented_facility_locations_pam(
 ):
     """Refine the cluster centroids with PAM local search.
 
-  For fixed iterations, alternate between updating the cluster assignment
-    and updating cluster medoids.
+    For fixed iterations, alternate between updating the cluster assignment
+      and updating cluster medoids.
 
-  Args:
-    pairwise_distances: 2-D Tensor of pairwise distances.
-    labels: 1-D Tensor of ground truth cluster assignment.
-    margin_multiplier: multiplication constant.
-    margin_type: Type of structured margin to use. Default is nmi.
-    chosen_ids: 1-D Tensor of initial estimate of cluster centroids.
-    pam_max_iter: Number of refinement iterations.
+    Args:
+      pairwise_distances: 2-D Tensor of pairwise distances.
+      labels: 1-D Tensor of ground truth cluster assignment.
+      margin_multiplier: multiplication constant.
+      margin_type: Type of structured margin to use. Default is nmi.
+      chosen_ids: 1-D Tensor of initial estimate of cluster centroids.
+      pam_max_iter: Number of refinement iterations.
 
-  Returns:
-    chosen_ids: Updated 1-D Tensor of cluster centroid indices.
-  """
+    Returns:
+      chosen_ids: Updated 1-D Tensor of cluster centroid indices.
+    """
     for _ in range(pam_max_iter):
         # update the cluster assignment given the chosen_ids (S_pred)
         predictions = get_cluster_assignment(pairwise_distances, chosen_ids)
@@ -1018,15 +1018,15 @@ def compute_augmented_facility_locations_pam(
 def compute_gt_cluster_score(pairwise_distances, labels):
     """Compute ground truth facility location score.
 
-  Loop over each unique classes and compute average travel distances.
+    Loop over each unique classes and compute average travel distances.
 
-  Args:
-    pairwise_distances: 2-D Tensor of pairwise distances.
-    labels: 1-D Tensor of ground truth cluster assignment.
+    Args:
+      pairwise_distances: 2-D Tensor of pairwise distances.
+      labels: 1-D Tensor of ground truth cluster assignment.
 
-  Returns:
-    gt_cluster_score: dtypes.float32 score.
-  """
+    Returns:
+      gt_cluster_score: dtypes.float32 score.
+    """
     unique_class_ids = array_ops.unique(labels)[0]
     num_classes = array_ops.size(unique_class_ids)
     iteration = array_ops.constant(0)
@@ -1069,32 +1069,32 @@ def cluster_loss(
 ):
     """Computes the clustering loss.
 
-  The following structured margins are supported:
-    nmi: normalized mutual information
-    ami: adjusted mutual information
-    ari: adjusted random index
-    vmeasure: v-measure
-    const: indicator checking whether the two clusterings are the same.
+    The following structured margins are supported:
+      nmi: normalized mutual information
+      ami: adjusted mutual information
+      ari: adjusted random index
+      vmeasure: v-measure
+      const: indicator checking whether the two clusterings are the same.
 
-  Args:
-    labels: 2-D Tensor of labels of shape [batch size, 1]
-    embeddings: 2-D Tensor of embeddings of shape
-      [batch size, embedding dimension]. Embeddings should be l2 normalized.
-    margin_multiplier: float32 scalar. multiplier on the structured margin term
-      See section 3.2 of paper for discussion.
-    enable_pam_finetuning: Boolean, Whether to run local pam refinement.
-      See section 3.4 of paper for discussion.
-    margin_type: Type of structured margin to use. See section 3.2 of
-      paper for discussion. Can be 'nmi', 'ami', 'ari', 'vmeasure', 'const'.
-    print_losses: Boolean. Option to print the loss.
+    Args:
+      labels: 2-D Tensor of labels of shape [batch size, 1]
+      embeddings: 2-D Tensor of embeddings of shape
+        [batch size, embedding dimension]. Embeddings should be l2 normalized.
+      margin_multiplier: float32 scalar. multiplier on the structured margin term
+        See section 3.2 of paper for discussion.
+      enable_pam_finetuning: Boolean, Whether to run local pam refinement.
+        See section 3.4 of paper for discussion.
+      margin_type: Type of structured margin to use. See section 3.2 of
+        paper for discussion. Can be 'nmi', 'ami', 'ari', 'vmeasure', 'const'.
+      print_losses: Boolean. Option to print the loss.
 
-  Paper: https://arxiv.org/abs/1612.01213.
+    Paper: https://arxiv.org/abs/1612.01213.
 
-  Returns:
-    clustering_loss: A float32 scalar `Tensor`.
-  Raises:
-    ImportError: If sklearn dependency is not installed.
-  """
+    Returns:
+      clustering_loss: A float32 scalar `Tensor`.
+    Raises:
+      ImportError: If sklearn dependency is not installed.
+    """
     if not HAS_SKLEARN:
         raise ImportError('Cluster loss depends on sklearn.')
     pairwise_distances = pairwise_distance(embeddings)

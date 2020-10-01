@@ -57,7 +57,7 @@ class TripletLossPoseInv(BaseModel):
             self.model.summary()
 
     def compile_model(self, lr, margin=0.5, weights=[1.0, 1.0], loss_func=None):
-        '''Compile the model'''
+        """Compile the model"""
         loss_func = loss_func or self.loss_func
         optimizer = Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
         if loss_func == 'triplet_loss_mult':
@@ -159,7 +159,7 @@ class TripletLossPoseInv(BaseModel):
         else:
             n_pairs = int(sample_size)
 
-        embeddings = np.zeros(shape=(2, n_pairs,) + features_shape)
+        embeddings = np.zeros(shape=(2, n_pairs) + features_shape)
         actual_issame = np.full(shape=(n_pairs,), fill_value=True, dtype=np.bool)
 
         # Create all possible combinations of images (no repeats)

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function
 import sys
 from os.path import exists
 from collections import OrderedDict
@@ -205,7 +204,7 @@ KWARGS = OrderedDict(
         'local_scheme': 'dirty-tag',
     },
     # packages=find_packages(),
-    packages=['wbia_pie',],
+    packages=['wbia_pie'],
     package_dir={'wbia_pie': 'wbia_pie'},
     include_package_data=False,
     # List of classifiers available at:

@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-import matplotlib
-
-matplotlib.use('Agg')
 
 from glob import glob
-import os, csv, random
+import csv
+import os
+import random
+
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy import genfromtxt
-import matplotlib.pyplot as plt
+
+matplotlib.use('Agg')
 
 
 def make_batches(size, batch_size):
@@ -161,8 +164,7 @@ def create_subfolders(src, dest):
 
 
 def read_dir(dir):
-    """Read dataset in folder where each class is in separate folder
-        """
+    """Read dataset in folder where each class is in separate folder"""
     g = glob(dir + '/*/*')
     print('Found {} files'.format(len(g)))
     return g
@@ -268,8 +270,8 @@ def sort2(x, y):
     sorted numpy arrays
     """
     return (
-        np.array([l for _, l in sorted(zip(y, x))]),
-        np.array([l for l, _ in sorted(zip(y, x))]),
+        np.array([b for _, b in sorted(zip(y, x))]),
+        np.array([a for a, _ in sorted(zip(y, x))]),
     )
 
 

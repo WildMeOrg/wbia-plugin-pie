@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function
+import logging
 import utool as ut
 import numpy as np
 import os
@@ -27,6 +27,7 @@ else:
 
 
 (print, rrr, profile) = ut.inject2(__name__)
+logger = logging.getLogger()
 
 _, register_ibs_method = controller_inject.make_ibs_register_decorator(__name__)
 if USE_WBIA:
@@ -43,7 +44,10 @@ _DEFAULT_CONFIG_DICT = {'config_path': _DEFAULT_CONFIG}
 MODEL_URLS = {
     'mobula_birostris': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'mobula_alfredi': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
+    'manta_ray_giant': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
+    'aetomylaeus_bovinus': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
+    'whale_humpback': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
 }
 
 
@@ -54,9 +58,9 @@ def pie_embedding_timed(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=Tru
     start = time.time()
     ans = ibs.pie_embedding(aid_list, config_path, use_depc)
     elapsed = time.time() - start
-    print('Computed %s embeddings in %s seconds' % (len(aid_list), elapsed))
+    logger.info('Computed %s embeddings in %s seconds' % (len(aid_list), elapsed))
     per_embedding = elapsed / len(aid_list)
-    print('average time is %s per embedding' % per_embedding)
+    logger.info('average time is %s per embedding' % per_embedding)
     return ans
 
 
@@ -247,9 +251,9 @@ def pie_preproc_dir(aid_list, config_path=_DEFAULT_CONFIG):
     conf_output_dir = config['prod']['output']
     output_dir = os.path.join(_PLUGIN_FOLDER, conf_output_dir, unique_prefix)
     if not os.path.isdir(output_dir):
-        print('PIE preproc_dir creating output directory %s' % output_dir)
+        logger.info('PIE preproc_dir creating output directory %s' % output_dir)
         os.makedirs(output_dir)
-    print('PIE preproc_dir for aids %s returning %s' % (aid_list, output_dir))
+    logger.info('PIE preproc_dir for aids %s returning %s' % (aid_list, output_dir))
     return output_dir
 
 
@@ -264,7 +268,7 @@ def pie_name_csv(ibs, aid_list, fpath=None):
     fnames = [fname.split('/')[-1] for fname in fnames]
     csv_dicts = [{'file': f, 'label': l} for (f, l) in zip(fnames, name_texts)]
     _write_csv_dicts(csv_dicts, fpath)
-    print('Saved PIE name file to %s' % fpath)
+    logger.info('Saved PIE name file to %s' % fpath)
     return fpath
 
 
@@ -570,7 +574,7 @@ def pie_annot_info_dir(aid_list):
     unique_label = str(hash(tuple(aid_list)))
     output_dir = os.path.join(embeddings_dir, unique_label)
     if not os.path.isdir(output_dir):
-        print('PIE embeddings_dir creating output directory %s' % output_dir)
+        logger.info('PIE embeddings_dir creating output directory %s' % output_dir)
         os.makedirs(output_dir)
     return output_dir
 
@@ -580,7 +584,7 @@ def _write_embeddings_csv(embeddings, fname):
     header = ['emb_' + str(i) for i in range(ncols)]
     header = ','.join(header)
     np.savetxt(fname, embeddings, delimiter=',', newline='\n', header=header)
-    print('PIE wrote embeddings csv to %s' % fname)
+    logger.info('PIE wrote embeddings csv to %s' % fname)
     return fname
 
 
@@ -597,7 +601,7 @@ def _write_labels_csv(ibs, aid_list, fname):
         {'class': c, 'file': f, 'name': n} for (c, f, n) in zip(classes, files, names)
     ]
     _write_csv_dicts(csv_dicts, fname)
-    print('PIE wrote labels csv to %s' % fname)
+    logger.info('PIE wrote labels csv to %s' % fname)
     return fname
 
 
@@ -610,7 +614,7 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
     labels2 = [entry['label'] for entry in answer_dict2]
     agree = [lab1 == lab2 for (lab1, lab2) in zip(labels1, labels2)]
     assert all(agree), 'Label rankings differ at rank %s' % agree.index(False)
-    print('Labels agree')
+    logger.info('Labels agree')
 
     distances1 = [entry['distance'] for entry in answer_dict1]
     distances2 = [entry['distance'] for entry in answer_dict2]
@@ -619,7 +623,7 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
         max(diffs)
     )
 
-    print('Distances are all within tolerance of %s' % dist_tolerance)
+    logger.info('Distances are all within tolerance of %s' % dist_tolerance)
 
 
 def _pie_accuracy(ibs, qaid, daid_list):
@@ -632,7 +636,7 @@ def _pie_accuracy(ibs, qaid, daid_list):
         rank = ans_names.index(ground_truth) + 1
     except ValueError:
         rank = -1
-    print('rank %s' % rank)
+    logger.info('rank %s' % rank)
     return rank
 
 
@@ -691,10 +695,10 @@ def pie_new_accuracy(ibs, aid_list, min_sights=3, max_sights=10):
     aids = subset_with_resights_range(ibs, aid_list, min_sights, max_sights)
     ranks = ibs.pie_mass_accuracy(aids)
     accuracy = ibs.accuracy_at_k(ranks)
-    print(
+    logger.info(
         'Accuracy at k for annotations with %s-%s sightings:' % (min_sights, max_sights)
     )
-    print(accuracy)
+    logger.info(accuracy)
     return accuracy
 
 
@@ -726,7 +730,7 @@ def pie_testdb_ibs():
         assert len(aids) > 3
         return ans_ibs
     except Exception:
-        print("PIE testdb does not exist; creating it with PIE's example images")
+        logger.info("PIE testdb does not exist; creating it with PIE's example images")
 
     ans_ibs = wbia.opendb(testdb_name, allow_newdir=True)
 

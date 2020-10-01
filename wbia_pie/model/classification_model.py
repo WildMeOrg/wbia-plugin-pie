@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
-import os
 from keras.optimizers import Adam
 
-import sys
-
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-from base_model import BaseModel
-from utils.utils import plot_model_loss_acc_csv
+from .base_model import BaseModel
+from ..utils.utils import plot_model_loss_acc_csv
 
 
 class Classification(BaseModel):
@@ -40,7 +36,7 @@ class Classification(BaseModel):
             self.model.summary()
 
     def compile_model(self, learning_rate):
-        '''Compile the model'''
+        """Compile the model"""
         optimizer = Adam(
             lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0
         )

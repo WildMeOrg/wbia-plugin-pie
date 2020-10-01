@@ -3,17 +3,14 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import shuffle
 
-import sys, os
-
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))  # models subdir
-from utils import rem_dupl
-from metrics import acck, mapk
+from ..utils import rem_dupl
+from .metrics import acck, mapk
 
 
 def evaluate_1_vs_all(
     train, train_lbl, test, test_lbl, n_eval_runs=10, move_to_db=2, k_list=[1, 5, 10]
 ):
-    """ Compute accuracy on each class from test set given the training set in multiple runs.
+    """Compute accuracy on each class from test set given the training set in multiple runs.
     Input:
     train: 2D numpy float array: array of embeddings for training set, shape = (num_train, len_emb)
     train_lbl: 1D numpy integer array: array of training labels, shape = (num_train,)
@@ -29,8 +26,10 @@ def evaluate_1_vs_all(
     print('Computing top-k accuracy for k=', k_list)
     if isinstance(k_list, int):
         k_list = [k_list]
+
     # Auxilary function to flatten a list
-    flatten = lambda l: [item for sublist in l for item in sublist]
+    def flatten(li):
+        return [item for sublist in li for item in sublist]
 
     # Evaluate accuracy at different k over a multiple runs. Report average results.
     acc = {k: [] for k in k_list}
@@ -77,7 +76,7 @@ def evaluate_1_vs_all(
 
 
 def predict_k_neigh(db_emb, db_lbls, test_emb, k=5):
-    '''Predict k nearest solutions for test embeddings based on labelled database embeddings.
+    """Predict k nearest solutions for test embeddings based on labelled database embeddings.
     Input:
     db_emb: 2D float array (num_emb, emb_size): database embeddings
     db_lbls: 1D array, string or floats: database labels
@@ -88,7 +87,7 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5):
     neigh_lbl_un - 2d int array of shape [len(test_emb), k] labels of predictions
     neigh_ind_un - 2d int array of shape [len(test_emb), k] labels of indices of nearest points
     neigh_dist_un - 2d float array of shape [len(test_emb), k] distances of predictions
-    '''
+    """
     # Set number of nearest points (with duplicated labels)
     k_w_dupl = min(50, len(db_emb))
     nn_classifier = NearestNeighbors(n_neighbors=k_w_dupl, metric='euclidean')
