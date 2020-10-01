@@ -285,7 +285,7 @@ class BaseModel(object):
                 # [0] found experimentally
                 preproc = aug_gen.flow(imgs[sid:eid], batch_size=batch_size, seed=augmentation_seed)
                 assert len(preproc) == 1
-                assert len(preproc[0]) == batch_size
+                assert len(preproc[0]) <= batch_size
                 preproc = preproc[0]
             else:
                 preproc = self.backend_class.normalize(imgs[sid:eid])
