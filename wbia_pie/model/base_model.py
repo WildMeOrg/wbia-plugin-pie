@@ -6,8 +6,11 @@ import keras.backend as K
 from tensorflow.keras.callbacks import Callback
 
 from keras.callbacks import EarlyStopping, ModelCheckpoint, CSVLogger
-
-from .backend import (
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/utils')
+from backend import (
     DummyNetFeature,
     InceptionV3Feature,
     VGG16Feature,
@@ -297,8 +300,7 @@ class BaseModel(object):
             )
         elif self.frontend == 'glob_pool':
             self.top_model = glob_pool(
-                embedding_size=self.embedding_size, backend_model=self.backend_model, use_dropout=self.use_dropout
-            )
+                embedding_size=self.embedding_size, backend_model=self.backend_model)
         elif self.frontend == 'glob_softmax':
             self.top_model = glob_softmax(
                 embedding_size=self.embedding_size, backend_model=self.backend_model

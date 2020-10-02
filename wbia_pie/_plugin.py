@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import logging
 from __future__ import absolute_import, division, print_function
+import logging
 import utool as ut
 import numpy as np
 import os
@@ -50,6 +50,8 @@ MODEL_URLS = {
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
     'aetomylaeus_bovinus': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'whale_humpback': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
+    'right_whale_head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
+    'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
 }
 
 
@@ -170,7 +172,7 @@ def pie_compute_embedding(
 
     _ensure_model_exists(ibs, aid_list, config_path)
 
-    embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export, augmentation_seed)
+    embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export)
     embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths, config_path)
 
     return embeddings
@@ -277,7 +279,7 @@ def pie_name_csv(ibs, aid_list, fpath=None, config_path=_DEFAULT_CONFIG):
     with open(config_path) as config_buffer:
         config = json.loads(config_buffer.read())
 
-    fnames = ibs.pie_annot_training_chip_fpaths(, aid_list, config)
+    fnames = ibs.pie_annot_training_chip_fpaths(aid_list, config)
     # only want final, file part of fpaths
     fnames = [fname.split('/')[-1] for fname in fnames]
     csv_dicts = [{'file': f, 'label': l} for (f, l) in zip(fnames, name_texts)]
@@ -574,8 +576,7 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, query_a
     nearest_neighbors_cache_path = os.path.join(ibs.cachedir, 'pie_neighbors')
     ut.ensuredir(nearest_neighbors_cache_path)
 
-    ans = pred_light(query_emb, db_embs, db_labels, config_path, n_results,
-                     nearest_neighbors_cache_path=nearest_neighbors_cache_path)
+    ans = pred_light(query_emb, db_embs, db_labels, config_path, n_results)
     return ans
 
 
@@ -1030,6 +1031,46 @@ def _invert_dict(d):
     for key, value in d.items():
         inverted[value].append(key)
     return dict(inverted)
+
+
+@register_ibs_method
+def pie_rw_subset_3_drew(ibs, aid_list, min_sights=6, max_sights=20, side='L'):
+    fname = os.path.join(_PLUGIN_FOLDER, 'rw/photosIDMapHead_L_R.csv')
+    csv_rows = csv_to_dicts(fname)
+    narw_im_names = [row['Encounter.MediaAsset'] for row in csv_rows]
+    narw_views = [row['Concat_ViewDirectionCode'] for row in csv_rows]
+    narw_image_to_viewcode = {im_name: view for (im_name, view) in zip(narw_im_names, narw_views)}
+    from collections import defaultdict  # so we can throw anything at image_to_viewcode without key errors
+    narw_image_to_viewcode = defaultdict(str, narw_image_to_viewcode)
+    ib_im_names = ibs.get_annot_image_names(aid_list)
+    good_annots = [aid for aid, im_name in zip(aid_list, ib_im_names)
+                   if narw_image_to_viewcode[im_name] == side]
+
+    bad_views = ['up', 'front']
+    if side is 'L':
+        bad_views.append('right')
+    elif side is 'R':
+        bad_views.append('lefts')
+
+    # because we trust these viewpoints
+    good_annots = filter_out_viewpoints(ibs, good_annots, bad_views=bad_views)
+    good_annots = size_filter_aids(ibs, good_annots, min_width=448, min_height=224)
+    good_annots = only_single_annot_images(ibs, good_annots)
+    good_annots = ibs.subset_with_resights_range(good_annots, min_sights, max_sights)
+    # just wanna compute some name statistics
+    good_names = ibs.get_annot_names(good_annots)
+    name_counts = _count_dict(good_names)
+    name_hist = [name_counts[name] for name in name_counts.keys()]
+    name_hist = _count_dict(name_hist)
+    print('name hist:')
+    print(name_hist)
+    num_names = len(set(good_names))
+    annots_per_name = len(good_annots) / num_names
+    # print("%s and up =============================" % min_score)
+    print('%s annots on %s side per name (%s names, %s annots)' % (
+        '{:6.1f}'.format(annots_per_name), side,
+        '{0:3}'.format(num_names), '{0:3}'.format(len(good_annots))))
+    return good_annots
 
 
 # Careful, this returns a different ibs than you sent in

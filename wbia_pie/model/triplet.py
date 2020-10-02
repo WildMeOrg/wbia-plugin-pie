@@ -5,10 +5,15 @@ import keras.backend as K
 from keras.optimizers import Adam, SGD
 from scipy.special import comb
 
-from .base_model import BaseModel
-from ..utils.tensorflow_losses import triplet_semihard_loss, lifted_struct_loss
-from ..utils import plot_model_loss_csv
-from ..evaluation.metrics import distance
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/utils')
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/evaluation')
+from base_model import BaseModel
+from tensorflow_losses import triplet_semihard_loss, lifted_struct_loss
+from utils import plot_model_loss_csv
+from metrics import distance
 
 
 class TripletLoss(BaseModel):

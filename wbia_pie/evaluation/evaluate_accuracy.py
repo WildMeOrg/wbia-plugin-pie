@@ -3,8 +3,11 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import shuffle
 
-from ..utils import rem_dupl
-from .metrics import acck, mapk
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))  # models subdir
+from utils import rem_dupl
+from metrics import acck, mapk
 
 
 def evaluate_1_vs_all(
@@ -78,7 +81,7 @@ def evaluate_1_vs_all(
 
 
 def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None, nearest_neighbors_cache_path=None):
-    '''Predict k nearest solutions for test embeddings based on labelled database embeddings.
+    """Predict k nearest solutions for test embeddings based on labelled database embeddings.
     Input:
     db_emb: 2D float array (num_emb, emb_size): database embeddings
     db_lbls: 1D array, string or floats: database labels
