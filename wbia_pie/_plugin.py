@@ -54,6 +54,12 @@ MODEL_URLS = {
     'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
 }
 
+FLIP_RIGHTSIDE_MODELS = {'right_whale_head', 'right_whale+head'}
+RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
+    'right',
+    'r',
+]
+
 
 @register_ibs_method
 def pie_embedding_timed(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
@@ -211,7 +217,7 @@ def fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths, config_path):
     with open(config_path, 'r') as f:
         pie_config = json.load(f)
 
-    chip_paths = ibs.pie_annot_training_chip_fpaths(aid_list, pie_config)
+    chip_paths = ibs.pie_annot_embedding_chip_fpaths(aid_list, pie_config)
     fnames = [os.path.split(fname)[1] for fname in chip_paths]
     aid_filepaths = [os.path.join(name, fname) for name, fname in zip(names, fnames)]
     # PIE messes with extensions, so throw those away
@@ -279,13 +285,59 @@ def pie_name_csv(ibs, aid_list, fpath=None, config_path=_DEFAULT_CONFIG):
     with open(config_path) as config_buffer:
         config = json.loads(config_buffer.read())
 
-    fnames = ibs.pie_annot_training_chip_fpaths(aid_list, config)
+    fnames = ibs.pie_annot_embedding_chip_fpaths(aid_list, config)
     # only want final, file part of fpaths
     fnames = [fname.split('/')[-1] for fname in fnames]
     csv_dicts = [{'file': f, 'label': l} for (f, l) in zip(fnames, name_texts)]
     _write_csv_dicts(csv_dicts, fpath)
     logger.info('Saved PIE name file to %s' % fpath)
     return fpath
+
+
+@register_ibs_method
+def pie_annot_embedding_chip_fpaths(ibs, aid_list, pie_config):
+    width  = int(pie_config['model']['input_width'])
+    height = int(pie_config['model']['input_height'])
+
+    chip_config = {
+        'dim_size': (width, height),
+        'resize_dim': 'wh',
+        'ext': '.png',  ## example images are .png
+    }
+
+    # flip right images if necessary
+    species = ibs.get_annot_species_texts(aid_list[0])
+    flip_list = [False] * len(aid_list)
+    if species in FLIP_RIGHTSIDE_MODELS:
+        viewpoint_list = ibs.get_annot_viewpoints(aid_list)
+        viewpoint_list = [
+            None if viewpoint is None else viewpoint.lower()
+            for viewpoint in viewpoint_list
+        ]
+        flip_list = [viewpoint in RIGHT_FLIP_LIST for viewpoint in viewpoint_list]
+
+    flip_aids = ut.compress(aid_list, flip_list)
+    unflipped_aids = ut.compress(aid_list, [not flip for flip in flip_list])
+
+    flip_config = chip_config.copy()
+    flip_config['flip_horizontal'] = True
+
+    flip_fpaths = ibs.get_annot_chip_fpath(flip_aids, ensure=True, config2_=flip_config)
+    unflipped_fpaths = ibs.get_annot_chip_fpath(unflipped_aids, ensure=True, config2_=chip_config)
+
+    # maybe not pythonic, but it works! (untested) (lol)
+    flip_index = 0
+    unflipped_index = 0
+    fpaths = []
+    for flip in flip_list:
+        if flip:
+            fpaths.append(flip_fpaths[flip_index])
+            flip_index += 1
+        else:
+            fpaths.append(unflipped_fpaths[unflipped_index])
+            unflipped_index += 1
+
+    return fpaths
 
 
 def _write_csv_dicts(csv_dicts, fpath):
@@ -1034,7 +1086,7 @@ def _invert_dict(d):
 
 
 @register_ibs_method
-def pie_rw_subset_3_drew(ibs, aid_list, min_sights=6, max_sights=20, side='L'):
+def pie_rw_subset_3_drew(ibs, aid_list, min_sights=3, max_sights=1000, side='L'):
     fname = os.path.join(_PLUGIN_FOLDER, 'rw/photosIDMapHead_L_R.csv')
     csv_rows = csv_to_dicts(fname)
     narw_im_names = [row['Encounter.MediaAsset'] for row in csv_rows]
@@ -1050,7 +1102,7 @@ def pie_rw_subset_3_drew(ibs, aid_list, min_sights=6, max_sights=20, side='L'):
     if side is 'L':
         bad_views.append('right')
     elif side is 'R':
-        bad_views.append('lefts')
+        bad_views.append('left')
 
     # because we trust these viewpoints
     good_annots = filter_out_viewpoints(ibs, good_annots, bad_views=bad_views)
