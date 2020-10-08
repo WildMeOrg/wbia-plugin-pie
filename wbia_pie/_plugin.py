@@ -47,13 +47,28 @@ MODEL_URLS = {
     'mobula_birostris': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'mobula_alfredi': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'manta_ray_giant': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
-    'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
     'aetomylaeus_bovinus': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
+    'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
     'whale_humpback': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
     'right_whale+head_lateral': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
+    'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
+    'right_whale_head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
 }
 
-FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral'}
+CONFIG_FPATHS = {
+    'mobula_birostris': os.path.join(_PLUGIN_FOLDER, 'configs/manta.json'),
+    'mobula_alfredi' : os.path.join(_PLUGIN_FOLDER, 'configs/manta.json'),
+    'aetomylaeus_bovinus': os.path.join(_PLUGIN_FOLDER, 'configs/manta.json'),
+    'manta_ray_giant': os.path.join(_PLUGIN_FOLDER, 'configs/manta.json'),
+    'megaptera_novaeangliae': os.path.join(_PLUGIN_FOLDER, 'configs/whale.json'),
+    'whale_humpback': os.path.join(_PLUGIN_FOLDER, 'configs/whale.json'),
+    'right_whale+head_lateral': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
+    'right_whale+head': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
+    'right_whale_head': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
+}
+
+
+FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral','right_whale+head','right_whale_head'}
 RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
     'right',
     'r',
@@ -61,7 +76,21 @@ RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
 
 
 @register_ibs_method
-def pie_embedding_timed(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=True):
+def _pie_config_fpath(ibs, aid_list):
+    species = ibs.get_annot_species(aid_list)[0]
+    if species in CONFIG_FPATHS.keys():
+        config_fpath = CONFIG_FPATHS.get(species)
+    else:
+        config_fpath = _DEFAULT_CONFIG
+    return config_fpath
+
+
+@register_ibs_method
+def pie_embedding_timed(ibs, aid_list, config_path=None, use_depc=True):
+
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
     import time
 
     start = time.time()
@@ -75,7 +104,7 @@ def pie_embedding_timed(ibs, aid_list, config_path=_DEFAULT_CONFIG, use_depc=Tru
 
 # note: an embedding is 256xfloat8, aka 2kb in size (using default config)
 @register_ibs_method
-def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, augmentation_seed=None, use_depc=True):
+def pie_embedding(ibs, aid_list, config_path=None, augmentation_seed=None, use_depc=True):
     r"""
     Generate embeddings using the Pose-Invariant Embedding (PIE) algorithm made by Olga
     Moskvyak and released on https://github.com/olgamoskvyak/reid-manta.
@@ -131,6 +160,9 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, augmentation_seed=
         >>> compare_embs = np.abs(embs1 - embs2)
         >>> assert compare_embs.max() < 1e-8
     """
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
     if use_depc:
         config = {'config_path': config_path, 'augmentation_seed': augmentation_seed}
         embeddings = ibs.depc_annot.get(
@@ -144,7 +176,7 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, augmentation_seed=
 
 class PieEmbeddingConfig(dt.Config):  # NOQA
     _param_info_list = [
-        ut.ParamInfo('config_path', _DEFAULT_CONFIG),
+        ut.ParamInfo('config_path', None),
         ut.ParamInfo('augmentation_seed', None, hideif=None),
     ]
 
@@ -170,8 +202,12 @@ def pie_embedding_depc(depc, aid_list, config):
 # TODO: delete the generated files in dbpath when we're done computing embeddings
 @register_ibs_method
 def pie_compute_embedding(
-    ibs, aid_list, config_path=_DEFAULT_CONFIG, output_dir=None, prefix=None, export=False, augmentation_seed=None,
+    ibs, aid_list, config_path=None, output_dir=None, prefix=None, export=False, augmentation_seed=None,
 ):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
+
     preproc_dir = ibs.pie_preprocess(aid_list, config_path=config_path)
     from .compute_db import compute
 
@@ -248,7 +284,10 @@ def _get_parent_dir_and_fname_only(fpath):
 # images in sub-folders for each label (name). These folders will be read by
 # PIE's embedding-compute function later.
 @register_ibs_method
-def pie_preprocess(ibs, aid_list, config_path=_DEFAULT_CONFIG):
+def pie_preprocess(ibs, aid_list, config_path=None):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
     output_dir = pie_preproc_dir(aid_list, config_path)
     label_file_path = os.path.join(output_dir, 'name_map.csv')
     label_file = ibs.pie_name_csv(aid_list, fpath=label_file_path, config_path=config_path)
@@ -260,7 +299,8 @@ def pie_preprocess(ibs, aid_list, config_path=_DEFAULT_CONFIG):
 
 
 # pie's preprocess works on every image in a folder, so we put 'em in a folder
-def pie_preproc_dir(aid_list, config_path=_DEFAULT_CONFIG):
+def pie_preproc_dir(aid_list, config_path):
+
     # hash the aid_list to make a unique folder name
     unique_prefix = str(hash(tuple(aid_list)))
     with open(config_path) as config_file:
@@ -276,9 +316,12 @@ def pie_preproc_dir(aid_list, config_path=_DEFAULT_CONFIG):
 
 # PIE's preproc and embed funcs require a .csv file linking filnames to labels (names)
 @register_ibs_method
-def pie_name_csv(ibs, aid_list, fpath=None, config_path=_DEFAULT_CONFIG):
+def pie_name_csv(ibs, aid_list, fpath=None, config_path=None):
     if fpath is None:
         fpath = os.path.join(_PLUGIN_FOLDER, 'examples/dev/name_map.csv')
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
     name_texts = ibs.get_annot_name_texts(aid_list)
 
     with open(config_path) as config_buffer:
@@ -352,7 +395,7 @@ def _write_csv_dicts(csv_dicts, fpath):
 class PieConfig(dt.Config):  # NOQA
     def get_param_info_list(self):
         return [
-            ut.ParamInfo('config_path', _DEFAULT_CONFIG),
+            ut.ParamInfo('config_path', None),
             ut.ParamInfo('query_aug_seeds', [None]),
             ut.ParamInfo('db_aug_seeds', [None]),
         ]
@@ -575,7 +618,7 @@ def aid_scores_from_name_score_dicts(ibs, name_score_dicts, daid_list):
 
 
 @register_ibs_method
-def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, query_aug_seed=None, db_aug_seed=None, n_results=100):
+def pie_predict_light(ibs, qaid, daid_list, config_path=None, query_aug_seed=None, db_aug_seed=None, n_results=100):
     r"""
     Matches an annotation using PIE, by calling PIE's k-means distance measure on PIE embeddings.
 
@@ -618,6 +661,9 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, query_a
     """
     # now get the embeddings into the shape and type PIE expects
     print("pie_predict_light called")
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, [qaid])
+
     db_embs = ibs.pie_embedding(daid_list, config_path, augmentation_seed=db_aug_seed)
     query_emb = ibs.pie_embedding([qaid], config_path, augmentation_seed=query_aug_seed)
     db_labels = _db_labels_for_pie(ibs, daid_list)
@@ -644,7 +690,10 @@ def _db_labels_for_pie(ibs, daid_list):
 
 
 @register_ibs_method
-def pie_predict_light_2(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
+def pie_predict_light_2(ibs, qaid, daid_list, config_path=None):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
     db_embs = np.array(ibs.pie_embedding(daid_list))
     db_labels = np.array(ibs.get_annot_name_texts(daid_list))
     # todo: cache this
@@ -661,8 +710,11 @@ def pie_predict_light_2(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
 
 # PIE's predict.predict function is more of a command-line program than a package function. It works off of .csv files, .json files, and images stored in hierachical folders, and does all sorts of preprocessing assuming the qaid embedding hasn't been computed before (so ofc, it computes that). This method is basically deprecated and was a proof-of-concept/MVP, and pie_predict_light should be used in practice. Kept around so we can verify that pie_predict_light produces the same results as the released predict function.
 @register_ibs_method
-def pie_predict(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, display=False):
-    config = ibs.pie_predict_prepare_config(daid_list, _DEFAULT_CONFIG)
+def pie_predict(ibs, qaid, daid_list, config_path=None, display=False):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
+    config = ibs.pie_predict_prepare_config(daid_list, config_path)
     impath = ibs.get_annot_image_paths(qaid)
 
     from .predict import predict
@@ -677,7 +729,10 @@ def pie_predict(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG, display=False
 
 # This func modifies a base PIE config file, which contains network parameters as well as database and image paths, keeping the network parameters but updating db/image paths to correspond to daid_list
 @register_ibs_method
-def pie_predict_prepare_config(ibs, daid_list, base_config_file=_DEFAULT_CONFIG):
+def pie_predict_prepare_config(ibs, daid_list, base_config_file=None):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
 
     pred_data_dir = ibs.pie_ensure_predict_datafiles(daid_list)
 
@@ -692,7 +747,9 @@ def pie_predict_prepare_config(ibs, daid_list, base_config_file=_DEFAULT_CONFIG)
 
 # pie_predict requires embeddings stored in a .csv file that is identified in the config file, as well as a file linking image names to labels (names). This func makes and saves those csvs if necessary, in a unique folder for a given daid_list.
 @register_ibs_method
-def pie_ensure_predict_datafiles(ibs, daid_list, base_config_file=_DEFAULT_CONFIG):
+def pie_ensure_predict_datafiles(ibs, daid_list, base_config_file=None):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
 
     pred_data_dir = pie_annot_info_dir(daid_list)
     embs_fname = os.path.join(pred_data_dir, '_emb.csv')
@@ -718,7 +775,7 @@ def pie_annot_info_dir(aid_list):
     return output_dir
 
 
-def _write_embeddings_csv(embeddings, fname, base_config_path=_DEFAULT_CONFIG):
+def _write_embeddings_csv(embeddings, fname):
     ncols = len(embeddings[0])
     header = ['emb_' + str(i) for i in range(ncols)]
     header = ','.join(header)
@@ -769,6 +826,8 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
 def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG):
     # TODO: do we change the config file?
     # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
+    if base_config_path is None:
+        base_config_path = _pie_config_fpath(ibs, aid_list)
 
     with open(base_config_path, 'r') as f:
         config = json.load(f)
@@ -784,7 +843,9 @@ def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG):
 
 
 @register_ibs_method
-def pie_evaluate(ibs, config_path=_DEFAULT_CONFIG):
+def pie_evaluate(ibs, config_path=None):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
     # TODO: do we change the config file?
     # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
     from .evaluate import evaluate
@@ -976,7 +1037,10 @@ def pie_apply_names(ibs, aid_list):
     ibs.set_annot_name_texts(nameless_aids, nameless_names)
 
 
-def _pie_accuracy(ibs, qaid, daid_list, config_path=_DEFAULT_CONFIG):
+def _pie_accuracy(ibs, qaid, daid_list, config_path=None):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
     daids = daid_list.copy()
     daids.remove(qaid)
     ans = ibs.pie_predict_light(qaid, daids, config_path=config_path)
@@ -1000,7 +1064,10 @@ def _count_dict(item_list):
 
 
 @register_ibs_method
-def pie_accuracy(ibs, aid_list, daid_list=None, config_path=_DEFAULT_CONFIG):
+def pie_accuracy(ibs, aid_list, daid_list=None, config_path=None):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
     if daid_list is None:
         daid_list = aid_list
     ranks = [_pie_accuracy(ibs, aid, daid_list, config_path) for aid in aid_list]
