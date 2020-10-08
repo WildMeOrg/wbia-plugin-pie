@@ -50,11 +50,10 @@ MODEL_URLS = {
     'megaptera_novaeangliae': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
     'aetomylaeus_bovinus': 'https://wildbookiarepository.azureedge.net/models/pie.manta_ray_giant.h5',
     'whale_humpback': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
-    'right_whale_head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
-    'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
+    'right_whale+head_lateral': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
 }
 
-FLIP_RIGHTSIDE_MODELS = {'right_whale_head', 'right_whale+head'}
+FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral'}
 RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
     'right',
     'r',
