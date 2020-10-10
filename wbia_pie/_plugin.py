@@ -188,7 +188,7 @@ class PieEmbeddingConfig(dt.Config):  # NOQA
     coltypes=[np.ndarray],
     configclass=PieEmbeddingConfig,
     fname='pie',
-    chunksize=1024,
+    chunksize=128,
 )
 @register_ibs_method
 def pie_embedding_depc(depc, aid_list, config):
