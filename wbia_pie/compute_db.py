@@ -96,10 +96,10 @@ def compute(dbpath, config_path, output_dir, prefix, export=False, augmentation_
         print('Error! Path does not exist: {}'.format(dbpath))
         quit()
 
-    print('db_imgs   = %s' % db_imgs)
-    print('db_labels = %s' % db_labels)
-    print('lbl2names = %s' % lbl2names)
-    print('db_files  = %s' % db_files)
+    # print('db_imgs   = %s' % db_imgs)
+    # print('db_labels = %s' % db_labels)
+    # print('lbl2names = %s' % lbl2names)
+    # print('db_files  = %s' % db_files)
 
     ##############################
     #   Load the model
