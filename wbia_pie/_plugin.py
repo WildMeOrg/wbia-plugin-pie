@@ -53,6 +53,8 @@ MODEL_URLS = {
     'right_whale+head_lateral': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
     'right_whale+head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
     'right_whale_head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
+    'eubalaena_australis': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
+    'eubalaena_glacialis': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
 }
 
 CONFIG_FPATHS = {
@@ -65,10 +67,12 @@ CONFIG_FPATHS = {
     'right_whale+head_lateral': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
     'right_whale+head': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
     'right_whale_head': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
+    'eubalaena_australis': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
+    'eubalaena_glacialis': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
 }
 
 
-FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral','right_whale+head','right_whale_head'}
+FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral', 'right_whale+head', 'right_whale_head', 'eubalaena_australis', 'eubalaena_glacialis'}
 RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
     'right',
     'r',
