@@ -55,6 +55,7 @@ MODEL_URLS = {
     'right_whale_head': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
     'eubalaena_australis': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
     'eubalaena_glacialis': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
+    'whale_fluke': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
 }
 
 CONFIG_FPATHS = {
@@ -69,6 +70,7 @@ CONFIG_FPATHS = {
     'right_whale_head': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
     'eubalaena_australis': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
     'eubalaena_glacialis': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
+    'whale_fluke': os.path.join(_PLUGIN_FOLDER, 'configs/whale.json'),
 }
 
 
