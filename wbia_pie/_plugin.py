@@ -7,6 +7,7 @@ import numpy as np
 import os
 import json
 import shutil
+import cv2
 
 try:
     import wbia
@@ -884,9 +885,6 @@ def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG, test_aids
 
 
 @register_ibs_method
-def pie_evaluate(ibs, config_path=None):
-    if config_path is None:
-        config_path = _pie_config_fpath(ibs, aid_list)
     # TODO: do we change the config file?
     # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
     from .evaluate import evaluate
