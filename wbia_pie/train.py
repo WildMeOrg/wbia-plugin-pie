@@ -242,6 +242,18 @@ def train(config, split_num=-1):
             fill_mode='reflect',
             preprocessing_function=mymodel.backend_class.normalize,
         )
+    elif config['train']['aug_rate'] == 'orca':
+        gen_args = dict(
+            rotation_range=30,
+            width_shift_range=0.15,
+            height_shift_range=0.15,
+            shear_range=0.1,
+            zoom_range=0.15,
+            channel_shift_range=0.15,
+            data_format=K.image_data_format(),
+            fill_mode='reflect',
+            preprocessing_function=mymodel.backend_class.normalize,
+        )
     else:
         raise Exception('Define augmentation rate in config!')
 
