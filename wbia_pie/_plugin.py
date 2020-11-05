@@ -2,6 +2,7 @@
 from __future__ import absolute_import, division, print_function
 import logging
 import utool as ut
+import vtool as vt
 import numpy as np
 import os
 import json
@@ -20,12 +21,10 @@ if USE_WBIA:
     from wbia.control import controller_inject
     from wbia.constants import ANNOTATION_TABLE, UNKNOWN
     from wbia import dtool as dt
-    import vtool as vt
 else:
     from ibeis.control import controller_inject
     from ibeis.constants import ANNOTATION_TABLE, UNKNOWN
     import dtool as dt
-    import vtool as vt
 
 
 (print, rrr, profile) = ut.inject2(__name__)
@@ -829,7 +828,7 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
 
 
 @register_ibs_method
-def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG):
+def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG, background_subtract=False):
     # TODO: do we change the config file?
     # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
     if base_config_path is None:
@@ -838,7 +837,7 @@ def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG):
     with open(base_config_path, 'r') as f:
         config = json.load(f)
 
-    _prepare_training_images(ibs, training_aids, config)
+    _prepare_training_images(ibs, training_aids, config, background_subtract)
 
     from .train import train
     import datetime
@@ -862,7 +861,7 @@ def pie_evaluate(ibs, config_path=None):
     return ans
 
 
-def _prepare_training_images(ibs, aid_list, pie_config):
+def _prepare_training_images(ibs, aid_list, pie_config, background_subtract):
     #  prepare training images directory
     target_dir = pie_config['data']['train_image_folder']
     # if target_dir is a relative path, make it absolute relative this plugin directory
@@ -872,7 +871,7 @@ def _prepare_training_images(ibs, aid_list, pie_config):
 
     # copy resized annot chips into name-based subfolders
     names = ibs.get_annot_name_texts(aid_list)
-    chip_paths = ibs.pie_annot_training_chip_fpaths(aid_list, pie_config)
+    chip_paths = ibs.pie_annot_training_chip_fpaths(aid_list, pie_config, background_subtract)
     for (aid, name, fpath) in zip(aid_list, names, chip_paths):
         name_dir = os.path.join(target_dir, name)
         os.makedirs(name_dir, exist_ok=True)
@@ -880,7 +879,73 @@ def _prepare_training_images(ibs, aid_list, pie_config):
 
 
 @register_ibs_method
-def pie_annot_training_chip_fpaths(ibs, aid_list, pie_config):
+def pie_annot_training_chip_fpaths(ibs, aid_list, pie_config, background_subtract=False):
+    width  = int(pie_config['model']['input_width'])
+    height = int(pie_config['model']['input_height'])
+
+    if background_subtract:
+        fpaths = background_subtracted_training_chip_fpath(ibs, aid_list, width, height)
+    else:
+        fpaths = _training_chip_fpath_helper(ibs, aid_list, width, height)
+
+    return fpaths
+
+
+def _training_chip_fpath_helper(ibs, aid_list, width, height):
+    chip_config = {
+        'dim_size': (width, height),
+        'resize_dim': 'wh',
+        'ext': '.png',  ## example images are .png
+    }
+    fpaths = ibs.get_annot_chip_fpath(aid_list, ensure=True, config2_=chip_config)
+    return fpaths
+
+
+@register_ibs_method
+def background_subtracted_training_chip_fpath(ibs, aid_list, width, height, output_path='/tmp/training_chips'):
+    config2_ = {
+        'fw_detector': 'cnn',
+    }
+    mask_path_list = ibs.get_annot_probchip_fpath(aid_list, config2_=config2_)
+    mask_list = [vt.imread(mask_path) for mask_path in mask_path_list]
+    chip_path_list = _training_chip_fpath_helper(ibs, aid_list, width, height)
+    chip_list = [vt.imread(chip_path) for chip_path in chip_path_list]
+
+    # just used for file naming
+    species_list = ibs.get_annot_species_texts(aid_list)
+    gid_list = ibs.get_annot_gids(aid_list)
+
+    fpaths = []
+    zipped = zip(aid_list, gid_list, species_list, mask_list, chip_list)
+
+    import cv2
+    for index, (aid, gid, species, mask_img, chip) in enumerate(zipped):
+        mask = vt.resize_mask(mask_img, chip)
+        blended = vt.blend_images_multiply(chip, mask)
+        blended *= 255.0
+        blended = np.around(blended)
+        blended[blended < 0] = 0
+        blended[blended > 255] = 255
+        blended = blended.astype(np.uint8)
+
+        canvas = blended
+        try:
+            output_filepath = join(
+                output_path, 'background.%s.%d.%d.png' % (species, gid, aid)
+            )
+            cv2.imwrite(output_filepath, canvas)
+            fpaths.append(output_filepath)
+
+        except:
+            import utool as ut
+            ut.embed()
+
+    return fpaths
+
+
+# same as training_chip_fpaths, except mirroring right-side photos if necessary
+@register_ibs_method
+def pie_annot_embedding_chip_fpaths(ibs, aid_list, pie_config):
     width  = int(pie_config['model']['input_width'])
     height = int(pie_config['model']['input_height'])
 
@@ -890,7 +955,38 @@ def pie_annot_training_chip_fpaths(ibs, aid_list, pie_config):
         'ext': '.png',  ## example images are .png
     }
 
-    fpaths = ibs.get_annot_chip_fpath(aid_list, ensure=True, config2_=chip_config)
+    # flip right images if necessary
+    species = ibs.get_annot_species_texts(aid_list[0])
+    flip_list = [False] * len(aid_list)
+    if species in FLIP_RIGHTSIDE_MODELS:
+        viewpoint_list = ibs.get_annot_viewpoints(aid_list)
+        viewpoint_list = [
+            None if viewpoint is None else viewpoint.lower()
+            for viewpoint in viewpoint_list
+        ]
+        flip_list = [viewpoint in RIGHT_FLIP_LIST for viewpoint in viewpoint_list]
+
+    flip_aids = ut.compress(aid_list, flip_list)
+    unflipped_aids = ut.compress(aid_list, [not flip for flip in flip_list])
+
+    flip_config = chip_config.copy()
+    flip_config['flip_horizontal'] = True
+
+    flip_fpaths = ibs.get_annot_chip_fpath(flip_aids, ensure=True, config2_=flip_config)
+    unlflipped_fpaths = ibs.get_annot_chip_fpath(unflipped_aids, ensure=True, config2_=chip_config)
+
+    # maybe not pythonic, but it works! (untested) (lol)
+    flip_index = 0
+    unflipped_index = 0
+    fpaths = []
+    for flip in flip_list:
+        if flip:
+            fpaths.append(flip_fpaths[flip_index])
+            flip_index += 1
+        else:
+            fpaths.append(unflipped_fpaths[unflipped_index])
+            unflipped_index += 1
+
     return fpaths
 
 
@@ -1067,6 +1163,14 @@ def _count_dict(item_list):
         count_dict[item] += 1
     count_dict = OrderedDict(sorted(count_dict.items()))
     return dict(count_dict)
+
+
+def _name_hist(ibs, aid_list):
+    names = ibs.get_annot_names(aid_list)
+    name_counts = _count_dict(names)
+    counts_only = list(name_counts.values())
+    name_hist = _count_dict(counts_only)
+    return name_hist
 
 
 @register_ibs_method
