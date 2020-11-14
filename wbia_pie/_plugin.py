@@ -88,17 +88,11 @@ RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
     'r',
 ]
 
-# orcas reuse a dorsal-fin annot, adding some more context by expanding the bbox.
-SPECIAL_PIE_ANNOT_MAP ={
-    'whale_orca+fin_dorsal': {
-        'modifying_func': orca_annot_modifier,
-    }
-}
+
 @register_ibs_method
 def pie_uses_special_annots(ibs, aid_list):
-    species = set(ibs.get_annot_species(aid_list))
-    uses_special_annots = [spec in SPECIAL_PIE_ANNOT_MAP.keys()  for spec in species]
-    return any(uses_special_annots)
+    species = ibs.get_annot_species(aid_list[0])
+    return species in SPECIAL_PIE_ANNOT_MAP.keys()
 
 
 @register_ibs_method
@@ -1343,7 +1337,6 @@ def _invert_dict(d):
     for key, value in d.items():
         inverted[value].append(key)
     return dict(inverted)
-
 
 # remember bbox is (xtl, ytl, w, h)
 def orca_annot_modifier(ibs, aid_list):
