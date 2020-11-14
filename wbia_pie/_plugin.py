@@ -79,17 +79,11 @@ RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
     'r',
 ]
 
-# orcas reuse a dorsal-fin annot, adding some more context by expanding the bbox.
-SPECIAL_PIE_ANNOT_MAP ={
-    'whale_orca+fin_dorsal': {
-        'modifying_func': orca_annot_modifier,
-    }
-}
+
 @register_ibs_method
 def pie_uses_special_annots(ibs, aid_list):
-    species = set(ibs.get_annot_species(aid_list))
-    uses_special_annots = [spec in SPECIAL_PIE_ANNOT_MAP.keys()  for spec in species]
-    return any(uses_special_annots)
+    species = ibs.get_annot_species(aid_list[0])
+    return species in SPECIAL_PIE_ANNOT_MAP.keys()
 
 
 @register_ibs_method
@@ -188,6 +182,7 @@ def pie_embedding(ibs, aid_list, config_path=None, augmentation_seed=None, use_d
     else:
         embeddings = pie_compute_embedding(ibs, aid_list, config_path=config_path,
             augmentation_seed=augmentation_seed)
+
     return embeddings
 
 
@@ -224,14 +219,26 @@ def pie_compute_embedding(
     if config_path is None:
         config_path = _pie_config_fpath(ibs, aid_list)
 
+    pie_aids = aid_list
+    use_special_aids = ibs.pie_uses_special_annots(aid_list)
+    if use_special_aids:
+        print("USE_SPECIAL_AIDS case in pie_compute_embedding")
+        species = ibs.get_annot_species(aid_list[0])
+        new_aids = SPECIAL_PIE_ANNOT_MAP[species]['modifying_func'](ibs, aid_list)
+        pie_aids = new_aids
 
-    preproc_dir = ibs.pie_preprocess(aid_list, config_path=config_path)
+    preproc_dir = ibs.pie_preprocess(pie_aids, config_path=config_path)
     from .compute_db import compute
 
+    # pie_aids might have a temporary species so we pass aid_list to _ensure
     _ensure_model_exists(ibs, aid_list, config_path)
 
     embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export)
-    embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths, config_path)
+    embeddings = fix_pie_embedding_order(ibs, embeddings, pie_aids, filepaths, config_path)
+
+    # want to delete new_aids here
+    if use_special_aids:
+        ibs.delete_annots(new_aids)
 
     return embeddings
 
@@ -1284,8 +1291,23 @@ def _invert_dict(d):
         inverted[value].append(key)
     return dict(inverted)
 
-    
+
 def orca_annot_modifier(ibs, aid_list):
+    bboxes = ibs.get_annot_bboxes(aid_list)
+    viewpoints = ibs.get_annot_viewpoints(aid_list)
+    viewpoints = [None if v is None else v.lower() for v in viewpoints]
+    gids = ibs.get_annot_gids(aid_list)
+    img_heights = ibs.get_image_heights(gids)
+    img_widths = ibs.get_image_widths(gids)
+
+    bbox_imgw_imgh_viewpoint = list(zip(bboxes, img_widths, img_heights, viewpoints))
+    # tuple unpacking
+    bbox_imgw_imgh_viewpoint = [(xtl, ytl, ann_w, ann_h, im_w, im_h, view) for
+                                (xtl, ytl, ann_w, ann_h), im_w, im_h, view
+                                in bbox_imgw_imgh_viewpoint]
+
+    new_bboxes = [orca_convert_bbox(*bbox_info) for bbox_info in bbox_imgw_imgh_viewpoint]
+    names = ibs.get_annot_names(aid_list)
     species = ibs.get_annot_species(aid_list)
 
 
