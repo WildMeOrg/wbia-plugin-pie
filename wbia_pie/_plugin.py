@@ -50,23 +50,17 @@ MODEL_URLS = {
 
 # for L/R features (e.g. right whale lateral head callosities, maybe zebra stripes) that were trained on *only* L photos,
 # we need to mirror right photos in the backend so they all look left. We also don't compare L vs R because patterns aren't symmetrical
-FLIP_RIGHTSIDE_MODELS = {'right_whale_head', 'right_whale+head'}
+FLIP_RIGHTSIDE_MODELS = {'right_whale_head', 'right_whale+head', 'whale_orca+fin_dorsal'}
 RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
     'right',
     'r',
 ]
 
-# orcas reuse a dorsal-fin annot, adding some more context by expanding the bbox.
-SPECIAL_PIE_ANNOT_MAP ={
-    'whale_orca+fin_dorsal': {
-        'modifying_func': orca_annot_modifier,
-    }
-}
+
 @register_ibs_method
 def pie_uses_special_annots(ibs, aid_list):
-    species = set(ibs.get_annot_species(aid_list))
-    uses_special_annots = [spec in SPECIAL_PIE_ANNOT_MAP.keys()  for spec in species]
-    return any(uses_special_annots)
+    species = ibs.get_annot_species(aid_list[0])
+    return species in SPECIAL_PIE_ANNOT_MAP.keys()
 
 
 @register_ibs_method
@@ -149,6 +143,7 @@ def pie_embedding(ibs, aid_list, config_path=_DEFAULT_CONFIG, augmentation_seed=
     else:
         embeddings = pie_compute_embedding(ibs, aid_list, config_path=config_path,
             augmentation_seed=augmentation_seed)
+
     return embeddings
 
 
@@ -182,13 +177,26 @@ def pie_embedding_depc(depc, aid_list, config):
 def pie_compute_embedding(
     ibs, aid_list, config_path=_DEFAULT_CONFIG, output_dir=None, prefix=None, export=False, augmentation_seed=None,
 ):
-    preproc_dir = ibs.pie_preprocess(aid_list, config_path=config_path)
+    pie_aids = aid_list
+    use_special_aids = ibs.pie_uses_special_annots(aid_list)
+    if use_special_aids:
+        print("USE_SPECIAL_AIDS case in pie_compute_embedding")
+        species = ibs.get_annot_species(aid_list[0])
+        new_aids = SPECIAL_PIE_ANNOT_MAP[species]['modifying_func'](ibs, aid_list)
+        pie_aids = new_aids
+
+    preproc_dir = ibs.pie_preprocess(pie_aids, config_path=config_path)
     from .compute_db import compute
 
+    # pie_aids might have a temporary species so we pass aid_list to _ensure
     _ensure_model_exists(ibs, aid_list, config_path)
 
     embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export, augmentation_seed)
-    embeddings = fix_pie_embedding_order(ibs, embeddings, aid_list, filepaths, config_path)
+    embeddings = fix_pie_embedding_order(ibs, embeddings, pie_aids, filepaths, config_path)
+
+    # want to delete new_aids here
+    if use_special_aids:
+        ibs.delete_annots(new_aids)
 
     return embeddings
 
@@ -1765,9 +1773,72 @@ def _invert_dict(d):
         inverted[value].append(key)
     return dict(inverted)
 
-
+# remember bbox is (xtl, ytl, w, h)
 def orca_annot_modifier(ibs, aid_list):
+    bboxes = ibs.get_annot_bboxes(aid_list)
+    viewpoints = ibs.get_annot_viewpoints(aid_list)
+    viewpoints = [None if v is None else v.lower() for v in viewpoints]
+    gids = ibs.get_annot_gids(aid_list)
+    img_heights = ibs.get_image_heights(gids)
+    img_widths = ibs.get_image_widths(gids)
+
+    bbox_imgw_imgh_viewpoint = list(zip(bboxes, img_widths, img_heights, viewpoints))
+    # tuple unpacking
+    bbox_imgw_imgh_viewpoint = [(xtl, ytl, ann_w, ann_h, im_w, im_h, view) for
+                                (xtl, ytl, ann_w, ann_h), im_w, im_h, view
+                                in bbox_imgw_imgh_viewpoint]
+
+    new_bboxes = [orca_convert_bbox(*bbox_info) for bbox_info in bbox_imgw_imgh_viewpoint]
+    names = ibs.get_annot_names(aid_list)
     species = ibs.get_annot_species(aid_list)
+    new_species = [spec + '_pie_temp_annot' for spec in species]
+
+    new_aids = ibs.add_annots(gids, bbox_list=new_bboxes, species_list=new_species,
+                              name_list=names, viewpoint_list=viewpoints)
+    print('created %s new PIE aids in orca_annot_modifier' % len(new_aids))
+    return new_aids
+
+
+_ORCA_WIDTH_MODIFIER = 3.0
+_ORCA_HEIGHT_MODIFIER = 1.5
+
+def orca_convert_bbox(xtl, ytl, annot_w, annot_h, img_w, img_h, viewpoint):
+    if viewpoint == 'r' or viewpoint == 'right':
+        bbox = orca_convert_right_box(xtl, ytl, annot_w, annot_h, img_w, img_h)
+    else:
+        bbox = orca_convert_left_box(xtl, ytl, annot_w, annot_h, img_w, img_h)
+    return bbox
+
+
+def orca_convert_right_box(xtl, ytl, annot_w, annot_h, img_w, img_h):
+    # expand the annot so it goes further caudal and ventral of the dorsal fin by above factors
+    xtr = xtl + annot_w  # this will stay the same since we're right-side
+    new_xtl = max(0, xtr - (_ORCA_WIDTH_MODIFIER * annot_w))
+    new_width = xtr - new_xtl
+
+    new_ybl = min(img_h, ytl + (_ORCA_HEIGHT_MODIFIER * annot_h))
+    new_height = new_ybl - ytl
+
+    return (new_xtl, ytl, new_width, new_height)
+
+
+def orca_convert_left_box(xtl, ytl, annot_w, annot_h, img_w, img_h):
+    # expand the annot so it goes further caudal and ventral of the dorsal fin by above factors
+    new_xtr = min(img_w, xtl + (_ORCA_WIDTH_MODIFIER * annot_w))
+    new_width = new_xtr - xtl
+
+    new_ybl = min(img_h, ytl + (_ORCA_HEIGHT_MODIFIER * annot_h))
+    new_height = new_ybl - ytl
+
+    return (xtl, ytl, new_width, new_height)
+
+
+# orcas reuse a dorsal-fin annot, adding some more context by expanding the bbox.
+SPECIAL_PIE_ANNOT_MAP ={
+    'whale_orca+fin_dorsal': {
+        'modifying_func': orca_annot_modifier,
+    }
+}
 
 
 # Careful, this returns a different ibs than you sent in
