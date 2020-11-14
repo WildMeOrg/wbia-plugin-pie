@@ -55,6 +55,8 @@ MODEL_URLS = {
     'eubalaena_australis': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
     'eubalaena_glacialis': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
     'whale_fluke': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
+    'whale_orca+fin_dorsal': 'https://wildbookiarepository.azureedge.net/models/pie.orca_saddle.h5',
+    'orcinus_orca': 'https://wildbookiarepository.azureedge.net/models/pie.orca_saddle.h5',
 }
 
 CONFIG_FPATHS = {
@@ -70,10 +72,12 @@ CONFIG_FPATHS = {
     'eubalaena_australis': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
     'eubalaena_glacialis': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
     'whale_fluke': os.path.join(_PLUGIN_FOLDER, 'configs/whale.json'),
+    'whale_orca+fin_dorsal': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
+    'orcinus_orca': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
 }
 
 
-FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral', 'right_whale+head', 'right_whale_head', 'eubalaena_australis', 'eubalaena_glacialis'}
+FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral', 'right_whale+head', 'right_whale_head', 'eubalaena_australis', 'eubalaena_glacialis', 'whale_orca+fin_dorsal', 'orcinus_orca'}
 RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
     'right',
     'r',
@@ -1292,6 +1296,7 @@ def _invert_dict(d):
     return dict(inverted)
 
 
+# remember bbox is (xtl, ytl, w, h)
 def orca_annot_modifier(ibs, aid_list):
     bboxes = ibs.get_annot_bboxes(aid_list)
     viewpoints = ibs.get_annot_viewpoints(aid_list)
@@ -1309,6 +1314,54 @@ def orca_annot_modifier(ibs, aid_list):
     new_bboxes = [orca_convert_bbox(*bbox_info) for bbox_info in bbox_imgw_imgh_viewpoint]
     names = ibs.get_annot_names(aid_list)
     species = ibs.get_annot_species(aid_list)
+    new_species = [spec + '_pie_temp_annot' for spec in species]
+
+    new_aids = ibs.add_annots(gids, bbox_list=new_bboxes, species_list=new_species,
+                              name_list=names, viewpoint_list=viewpoints)
+    print('created %s new PIE aids in orca_annot_modifier' % len(new_aids))
+    return new_aids
+
+
+_ORCA_WIDTH_MODIFIER = 3.0
+_ORCA_HEIGHT_MODIFIER = 1.5
+
+def orca_convert_bbox(xtl, ytl, annot_w, annot_h, img_w, img_h, viewpoint):
+    if viewpoint == 'r' or viewpoint == 'right':
+        bbox = orca_convert_right_box(xtl, ytl, annot_w, annot_h, img_w, img_h)
+    else:
+        bbox = orca_convert_left_box(xtl, ytl, annot_w, annot_h, img_w, img_h)
+    return bbox
+
+
+def orca_convert_right_box(xtl, ytl, annot_w, annot_h, img_w, img_h):
+    # expand the annot so it goes further caudal and ventral of the dorsal fin by above factors
+    xtr = xtl + annot_w  # this will stay the same since we're right-side
+    new_xtl = max(0, xtr - (_ORCA_WIDTH_MODIFIER * annot_w))
+    new_width = xtr - new_xtl
+
+    new_ybl = min(img_h, ytl + (_ORCA_HEIGHT_MODIFIER * annot_h))
+    new_height = new_ybl - ytl
+
+    return (new_xtl, ytl, new_width, new_height)
+
+
+def orca_convert_left_box(xtl, ytl, annot_w, annot_h, img_w, img_h):
+    # expand the annot so it goes further caudal and ventral of the dorsal fin by above factors
+    new_xtr = min(img_w, xtl + (_ORCA_WIDTH_MODIFIER * annot_w))
+    new_width = new_xtr - xtl
+
+    new_ybl = min(img_h, ytl + (_ORCA_HEIGHT_MODIFIER * annot_h))
+    new_height = new_ybl - ytl
+
+    return (xtl, ytl, new_width, new_height)
+
+
+# orcas reuse a dorsal-fin annot, adding some more context by expanding the bbox.
+SPECIAL_PIE_ANNOT_MAP = {
+    'whale_orca+fin_dorsal': {
+        'modifying_func': orca_annot_modifier,
+    }
+}
 
 
 # Careful, this returns a different ibs than you sent in
