@@ -56,6 +56,7 @@ MODEL_URLS = {
     'eubalaena_glacialis': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
     'whale_fluke': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
     'whale_orca+fin_dorsal': 'https://wildbookiarepository.azureedge.net/models/pie.orca_saddle.h5',
+    'whale_orca': 'https://wildbookiarepository.azureedge.net/models/pie.orca_saddle.h5',
     'orcinus_orca': 'https://wildbookiarepository.azureedge.net/models/pie.orca_saddle.h5',
 }
 
@@ -73,11 +74,12 @@ CONFIG_FPATHS = {
     'eubalaena_glacialis': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
     'whale_fluke': os.path.join(_PLUGIN_FOLDER, 'configs/whale.json'),
     'whale_orca+fin_dorsal': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
+    'whale_orca': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
     'orcinus_orca': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
 }
 
 
-FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral', 'right_whale+head', 'right_whale_head', 'eubalaena_australis', 'eubalaena_glacialis', 'whale_orca+fin_dorsal', 'orcinus_orca'}
+FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral', 'right_whale+head', 'right_whale_head', 'eubalaena_australis', 'eubalaena_glacialis', 'whale_orca+fin_dorsal', 'orcinus_orca', 'whale_orca'}
 RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
     'right',
     'r',
