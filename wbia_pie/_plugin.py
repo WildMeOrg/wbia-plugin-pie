@@ -919,11 +919,20 @@ def pie_annot_training_chip_fpaths(ibs, aid_list, pie_config, flip_horizontal=Fa
     # if undefined, assume no bg subtract
     use_background_subtract = pie_config['model'].get('background_subtract', False)
 
+    # in case we have a special PIE aid-modifying func
+    pie_aids = aid_list
+    use_special_aids = ibs.pie_uses_special_annots(aid_list)
+    if use_special_aids:
+        print("USE_SPECIAL_AIDS case in pie_annot_training_chip_fpaths")
+        species = ibs.get_annot_species(aid_list[0])
+        new_aids = SPECIAL_PIE_ANNOT_MAP[species]['modifying_func'](ibs, aid_list)
+        pie_aids = new_aids
+
     if use_background_subtract:
         print('BACKGROUND SUBTRACT is being applied on _annot_training_chip_fpaths')
-        fpaths = background_subtracted_training_chip_fpath(ibs, aid_list, width, height, pie_config, flip_horizontal=flip_horizontal)
+        fpaths = background_subtracted_training_chip_fpath(ibs, pie_aids, width, height, pie_config, flip_horizontal=flip_horizontal)
     else:
-        fpaths = _training_chip_fpath_helper(ibs, aid_list, width, height, flip_horizontal)
+        fpaths = _training_chip_fpath_helper(ibs, pie_aids, width, height, flip_horizontal)
 
     return fpaths
 
