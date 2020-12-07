@@ -105,13 +105,14 @@ def train(config, split_num=-1):
     ###############################
 
     # Get test set if exists, otherwise split train set
-    if os.path.exists(config['evaluate']['test_set']):
+    test_dir = config['evaluate']['test_set']
+    if test_dir is not None and test_dir != "":
         print('Loading test set from {}'.format(config['evaluate']['test_set']))
         valid_imgs, valid_names, _ = read_dataset(
-            config['evaluate']['test_set'], original_labels=True
+            os.path.join(plugin_folder, config['evaluate']['test_set']), original_labels=True
         )
         train_imgs, train_names, _ = read_dataset(
-            config['data']['train_image_folder'], original_labels=True
+            os.path.join(plugin_folder, config['data']['train_image_folder']), original_labels=True
         )
         overlap = all(np.isin(train_names, valid_names))
         print('Overlap between train and valid set in individual names: ', overlap)

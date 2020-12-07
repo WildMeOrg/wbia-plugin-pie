@@ -55,9 +55,9 @@ MODEL_URLS = {
     'eubalaena_australis': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
     'eubalaena_glacialis': 'https://wildbookiarepository.azureedge.net/models/pie.right_whale.laterals.h5',
     'whale_fluke': 'https://wildbookiarepository.azureedge.net/models/pie.whale_humpback.h5',
-    'whale_orca+fin_dorsal': 'https://wildbookiarepository.azureedge.net/models/pie.orca_saddle.h5',
-    'whale_orca': 'https://wildbookiarepository.azureedge.net/models/pie.orca_saddle.h5',
-    'orcinus_orca': 'https://wildbookiarepository.azureedge.net/models/pie.orca_saddle.h5',
+    'whale_orca+fin_dorsal': 'https://wildbookiarepository.azureedge.net/models/pie.orca_saddle.v2.h5',
+    'whale_orca': 'https://wildbookiarepository.azureedge.net/models/pie.orca_body.h5',
+    'orcinus_orca': 'https://wildbookiarepository.azureedge.net/models/pie.orca_body.h5',
 }
 
 CONFIG_FPATHS = {
@@ -860,7 +860,7 @@ def _pie_compare_dicts(ibs, answer_dict1, answer_dict2, dist_tolerance=1e-5):
 
 
 @register_ibs_method
-def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG):
+def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG, test_aids=None):
     # TODO: do we change the config file?
     # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
     if base_config_path is None:
@@ -869,7 +869,7 @@ def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG):
     with open(base_config_path, 'r') as f:
         config = json.load(f)
 
-    _prepare_training_images(ibs, training_aids, config)
+    _prepare_training_images(ibs, training_aids, config, test_aids)
 
     from .train import train
     import datetime
@@ -893,22 +893,46 @@ def pie_evaluate(ibs, config_path=None):
     return ans
 
 
-def _prepare_training_images(ibs, aid_list, pie_config):
-    #  prepare training images directory
-    target_dir = pie_config['data']['train_image_folder']
-    # if target_dir is a relative path, make it absolute relative this plugin directory
+def _prepare_training_images(ibs, aid_list, pie_config, test_aid_list=None):
+
+    # Optional test set error handling
+    test_image_dir = pie_config['evaluate']['test_set']
+    config_has_test = (test_image_dir != None and test_image_dir != '')
+    test_aids_provided = (test_aid_list is not None and len(test_aid_list) > 0)
+    assert(config_has_test == test_aids_provided,
+        "Must define both test set imagefolder and test_aids, or neither")
+    use_test_aids = config_has_test and test_aids_provided
+    if use_test_aids:
+        assert(len(set(aid_list) & set(test_aid_list)) is 0,
+            "aid_list and test_aids must be mutually exclusive")
+        print("Using %s test_aids as specified during pie_training, about to _copy_training_images" % len(test_aid_list))
+        _copy_training_images(ibs, test_aid_list, test_image_dir, pie_config)
+
+    # now just handle normal train images
+    train_image_dir = pie_config['data']['train_image_folder']
+    _copy_training_images(ibs, aid_list, train_image_dir, pie_config)
+
+
+# this would be called once for the training aids and (optionally) once for the test/eval aids
+def _copy_training_images(ibs, aid_list, target_dir, pie_config):
     if not os.path.isabs(target_dir):
         plugin_folder = os.path.dirname(os.path.realpath(__file__))
         target_dir = os.path.join(plugin_folder, target_dir)
 
     # copy resized annot chips into name-based subfolders
     names = ibs.get_annot_name_texts(aid_list)
-    print("calling _annot_training_chip_fpaths in _prepare_training_images")
+    print("calling _annot_training_chip_fpaths in _copy_training_images")
     chip_paths = ibs.pie_annot_training_chip_fpaths(aid_list, pie_config)
     for (aid, name, fpath) in zip(aid_list, names, chip_paths):
         name_dir = os.path.join(target_dir, name)
         os.makedirs(name_dir, exist_ok=True)
         shutil.copy(fpath, name_dir)
+
+
+def _config_has_test_dir(pie_config):
+    test_dir = pie_config['evaluate']['test_set']
+    test_dir_defined = (test_dir != None and test_dir != '')
+    return test_dir_defined
 
 
 @register_ibs_method
