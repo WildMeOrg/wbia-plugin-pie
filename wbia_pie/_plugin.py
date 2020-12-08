@@ -73,7 +73,7 @@ CONFIG_FPATHS = {
     'eubalaena_australis': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
     'eubalaena_glacialis': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
     'whale_fluke': os.path.join(_PLUGIN_FOLDER, 'configs/whale.json'),
-    'whale_orca+fin_dorsal': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
+    'whale_orca+fin_dorsal': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy-saddle.json'),
     'whale_orca': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
     'orcinus_orca': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
 }
@@ -88,6 +88,8 @@ RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
 
 @register_ibs_method
 def pie_uses_special_annots(ibs, aid_list):
+    if aid_list is None or len(aid_list) is 0:
+        return False
     species = ibs.get_annot_species(aid_list[0])
     return species in SPECIAL_PIE_ANNOT_MAP.keys()
 
