@@ -78,10 +78,15 @@ def pairwise_distance(feature, squared=False):
     )
 
     num_data = array_ops.shape(feature)[0]
+
     # Explicitly set diagonals to zero.
+
+    # import utool as ut
+    # ut.embed()
     mask_offdiagonals = array_ops.ones_like(pairwise_distances) - array_ops.diag(
         array_ops.ones([num_data])
     )
+
     pairwise_distances = math_ops.multiply(pairwise_distances, mask_offdiagonals)
     return pairwise_distances
 
@@ -194,6 +199,8 @@ def triplet_semihard_loss(y_true, y_preds, margin=0.5):
     labels = array_ops.reshape(labels, [lshape[0], 1])
 
     # Build pairwise squared distance matrix.
+    # import utool as ut
+    # ut.embed()
     pdist_matrix = pairwise_distance(embeddings, squared=True)
     # Build pairwise binary adjacency matrix.
     adjacency = math_ops.equal(labels, array_ops.transpose(labels))

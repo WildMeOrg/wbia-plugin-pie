@@ -7,13 +7,9 @@ import keras.backend as K
 from keras.optimizers import Adam
 from scipy.special import comb
 
-import sys
-
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/utils')
-from evaluation.metrics import contrastive_loss
-from utils import make_batches, plot_model_loss_acc_csv
-
+from ..evaluation.metrics import contrastive_loss
+from ..utils.utils import make_batches, plot_model_loss_acc_csv
+from base_model import BaseModel
 
 class Siamese(BaseModel):
     def __init__(
