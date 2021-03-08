@@ -60,6 +60,8 @@ MODEL_URLS = {
     'whale_orca+fin_dorsal': 'https://wildbookiarepository.azureedge.net/models/pie.orca_saddle.v2.h5',
     'whale_orca': 'https://wildbookiarepository.azureedge.net/models/pie.orca_body.h5',
     'orcinus_orca': 'https://wildbookiarepository.azureedge.net/models/pie.orca_body.h5',
+    'eschrichtius_robustus': 'https://wildbookiarepository.azureedge.net/models/pie.grey_whale.h5',
+    'whale_grey': 'https://wildbookiarepository.azureedge.net/models/pie.grey_whale.h5',
 }
 
 CONFIG_FPATHS = {
@@ -79,10 +81,12 @@ CONFIG_FPATHS = {
     'whale_orca+fin_dorsal': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy-saddle.json'),
     'whale_orca': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
     'orcinus_orca': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
+    'eschrichtius_robustus': os.path.join(_PLUGIN_FOLDER, 'configs/gw-rc.json'),
+    'whale_grey': os.path.join(_PLUGIN_FOLDER, 'configs/gw-rc.json'),
 }
 
 
-FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral', 'right_whale+head', 'right_whale_head', 'eubalaena_australis', 'eubalaena_glacialis', 'whale_orca+fin_dorsal', 'orcinus_orca', 'whale_orca'}
+FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral', 'right_whale+head', 'right_whale_head', 'eubalaena_australis', 'eubalaena_glacialis', 'whale_orca+fin_dorsal', 'orcinus_orca', 'whale_orca', 'eschrichtius_robustus', 'whale_grey'}
 RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
     'right',
     'r',
@@ -930,7 +934,9 @@ def _copy_training_images(ibs, aid_list, target_dir, pie_config):
     # copy resized annot chips into name-based subfolders
     names = ibs.get_annot_name_texts(aid_list)
     print("calling _annot_training_chip_fpaths in _copy_training_images")
-    chip_paths = ibs.pie_annot_training_chip_fpaths(aid_list, pie_config)
+    #  chip_paths = ibs.pie_annot_training_chip_fpaths(aid_list, pie_config)
+    chip_paths = ibs.pie_annot_embedding_chip_fpaths(aid_list, pie_config)
+
     for (aid, name, fpath) in zip(aid_list, names, chip_paths):
         name_dir = os.path.join(target_dir, name)
         os.makedirs(name_dir, exist_ok=True)
@@ -1252,15 +1258,75 @@ def _name_hist(ibs, aid_list):
 
 
 @register_ibs_method
-def pie_accuracy(ibs, aid_list, daid_list=None, config_path=None):
+def pie_accuracy(ibs, aid_list, daid_list=None, config_path=None, num_illustrations=0, illust_dir='/tmp/pie_accuracy/'):
     if config_path is None:
         config_path = _pie_config_fpath(ibs, aid_list)
+
+    with open(config_path) as config_buffer:
+        config = json.loads(config_buffer.read())
+
 
     if daid_list is None:
         daid_list = aid_list
     ranks = [_pie_accuracy(ibs, aid, daid_list, config_path) for aid in aid_list]
+
+    # make illustrations:
+    illustrate_pie(ibs, aid_list, daid_list, ranks, num_illustrations, config_path, illust_dir )
+
+    # return accuracy at k
     accs = ibs.accuracy_at_k(ranks)
     return accs
+
+
+def illustrate_pie(ibs, qaid_list, daid_list, ranks, num_illustrations, config_path, illust_dir, rand_seed=777):
+
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, aid_list)
+
+    with open(config_path) as config_buffer:
+        config = json.loads(config_buffer.read())
+
+
+    right_dir = os.path.join(illust_dir, 'correct')
+    wrong_dir = os.path.join(illust_dir, 'incorrect')
+    os.makedirs(right_dir, exist_ok=True)
+    os.makedirs(wrong_dir, exist_ok=True)
+    num_illustrations = min(len(qaid_list), num_illustrations)
+    aid_fpaths = ibs.pie_annot_embedding_chip_fpaths(qaid_list, config)
+
+    # so we can show the correct match-against images
+    q_names = ibs.get_annot_names(qaid_list)
+    d_names = ibs.get_annot_names(daid_list)
+    d_fpaths = ibs.pie_annot_embedding_chip_fpaths(daid_list, config)
+
+    import random
+    random.seed(rand_seed)
+    illus_indices = random.sample(range(len(qaid_list)), num_illustrations)
+
+    for i in illus_indices:
+        rank, qaid, fpath = ranks[i], qaid_list[i], aid_fpaths[i]
+
+        target_dir = right_dir if rank > -1 else wrong_dir
+
+        # illustrate the potential matches
+        q_name = q_names[i]
+        correct_daids = [aid for aid,name in zip(daid_list, d_names) if name == q_name]
+        correct_daid_fpaths = [fp for fp,name in zip(d_fpaths, d_names) if name == q_name]
+        target_name_in_folder = str(qaid) + '-pie_emb'
+        target_name_in_folder = os.path.join(target_dir, target_name_in_folder)
+        correct_candidates_dir = target_name_in_folder + '-correct_candidates'
+        os.makedirs(correct_candidates_dir, exist_ok=True)
+        for d_fpath, daid in zip(correct_daid_fpaths, correct_daids):
+            if daid != qaid:
+                daid_target_fname = str(daid) + os.path.splitext(d_fpath)[1]
+                daid_target_fname = os.path.join(correct_candidates_dir, daid_target_fname)
+                ut.copy(d_fpath, daid_target_fname)
+
+        target_fname = str(qaid) + '-pie_emb' + os.path.splitext(fpath)[1]
+        target_fname = os.path.join(target_dir, target_fname)
+        ut.copy(fpath, target_fname)
+
+
 
 
 @register_ibs_method
