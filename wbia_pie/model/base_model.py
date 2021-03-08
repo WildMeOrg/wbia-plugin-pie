@@ -3,9 +3,8 @@ import numpy as np
 from keras.models import Model
 from keras.preprocessing.image import ImageDataGenerator
 import keras.backend as K
-from tensorflow.keras.callbacks import Callback
+from keras.callbacks import Callback
 
-from keras.callbacks import EarlyStopping, ModelCheckpoint, CSVLogger
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
