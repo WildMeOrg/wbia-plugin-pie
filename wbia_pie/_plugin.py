@@ -105,14 +105,6 @@ RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
 ]
 
 
-# TODO: DREW LINT ME
-# @register_ibs_method
-# def pie_uses_special_annots(ibs, aid_list):
-#     species = ibs.get_annot_species(aid_list[0])
-#     return species in SPECIAL_PIE_ANNOT_MAP.keys()
-# /TODO
-
-
 @register_ibs_method
 def pie_uses_special_annots(ibs, aid_list):
     if aid_list is None or len(aid_list) == 0:
@@ -792,15 +784,13 @@ def pie_predict(ibs, qaid, daid_list, config_path=None, display=False):
 
 # This func modifies a base PIE config file, which contains network parameters as well as database and image paths, keeping the network parameters but updating db/image paths to correspond to daid_list
 @register_ibs_method
-def pie_predict_prepare_config(ibs, daid_list, base_config_file=None):
-    # TODO: DREW LINT ME
-    # if config_path is None:
-    #     config_path = _pie_config_fpath(ibs, aid_list)
-    # /TODO
+def pie_predict_prepare_config(ibs, daid_list, config_path=None):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, daid_list)
 
     pred_data_dir = ibs.pie_ensure_predict_datafiles(daid_list)
 
-    with open(base_config_file) as conf_file:
+    with open(config_path) as conf_file:
         config = json.loads(conf_file.read())
 
     config['prod']['embeddings'] = pred_data_dir
@@ -811,11 +801,9 @@ def pie_predict_prepare_config(ibs, daid_list, base_config_file=None):
 
 # pie_predict requires embeddings stored in a .csv file that is identified in the config file, as well as a file linking image names to labels (names). This func makes and saves those csvs if necessary, in a unique folder for a given daid_list.
 @register_ibs_method
-def pie_ensure_predict_datafiles(ibs, daid_list, base_config_file=None):
-    # TODO: DREW LINT ME
-    # if config_path is None:
-    #     config_path = _pie_config_fpath(ibs, aid_list)
-    # /TODO
+def pie_ensure_predict_datafiles(ibs, daid_list, config_path=None):
+    if config_path is None:
+        config_path = _pie_config_fpath(ibs, daid_list)
 
     pred_data_dir = pie_annot_info_dir(daid_list)
     embs_fname = os.path.join(pred_data_dir, '_emb.csv')
@@ -907,19 +895,6 @@ def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG, test_aids
     ans = train(config)
     print('%s: done training' % datetime.datetime.now())
     return ans
-
-
-# TODO: DREW LINT ME
-# @register_ibs_method
-#     # TODO: do we change the config file?
-#     # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
-#     from .evaluate import evaluate
-#     import datetime
-#     print('%s: about to evaluate' % datetime.datetime.now())
-#     ans = evaluate(config_path)
-#     print('%s: done evaluating' % datetime.datetime.now())
-#     return ans
-# /TODO
 
 
 def _prepare_training_images(ibs, aid_list, pie_config, test_aid_list=None):
@@ -1065,56 +1040,6 @@ def background_subtracted_training_chip_fpath(
         fpaths.append(output_filepath)
 
     return fpaths
-
-
-# TODO: DREW LINT ME
-# @register_ibs_method
-# def pie_annot_embedding_chip_fpaths(ibs, aid_list, pie_config):
-#     width = int(pie_config['model']['input_width'])
-#     height = int(pie_config['model']['input_height'])
-
-#     chip_config = {
-#         'dim_size': (width, height),
-#         'resize_dim': 'wh',
-#         'ext': '.png',  # example images are .png
-#     }
-
-#     # flip right images if necessary
-#     species = ibs.get_annot_species_texts(aid_list[0])
-#     flip_list = [False] * len(aid_list)
-#     if species in FLIP_RIGHTSIDE_MODELS:
-#         viewpoint_list = ibs.get_annot_viewpoints(aid_list)
-#         viewpoint_list = [
-#             None if viewpoint is None else viewpoint.lower()
-#             for viewpoint in viewpoint_list
-#         ]
-#         flip_list = [viewpoint in RIGHT_FLIP_LIST for viewpoint in viewpoint_list]
-
-#     flip_aids = ut.compress(aid_list, flip_list)
-#     unflipped_aids = ut.compress(aid_list, [not flip for flip in flip_list])
-
-#     flip_config = chip_config.copy()
-#     flip_config['flip_horizontal'] = True
-
-#     flip_fpaths = ibs.get_annot_chip_fpath(flip_aids, ensure=True, config2_=flip_config)
-#     unflipped_fpaths = ibs.get_annot_chip_fpath(
-#         unflipped_aids, ensure=True, config2_=chip_config
-#     )
-
-#     # maybe not pythonic, but it works! (untested) (lol)
-#     flip_index = 0
-#     unflipped_index = 0
-#     fpaths = []
-#     for flip in flip_list:
-#         if flip:
-#             fpaths.append(flip_fpaths[flip_index])
-#             flip_index += 1
-#         else:
-#             fpaths.append(unflipped_fpaths[unflipped_index])
-#             unflipped_index += 1
-
-#     return fpaths
-# /TODO
 
 
 # same as training_chip_fpaths, except mirroring right-side photos if necessary
@@ -1289,31 +1214,6 @@ def value_deltas(values):
     return delta_list
 
 
-def pie_apply_names(ibs, aid_list):
-    names = ibs.get_annot_name_texts(aid_list)
-    nameless_aids = [aid for aid, name in zip(aid_list, names) if name == '____']
-
-    nameless_fnames = ibs.get_annot_image_paths(nameless_aids)
-    nameless_fnames = [os.path.split(fn)[1] for fn in nameless_fnames]
-
-    # load metadata file
-    import csv
-
-    # TODO: DREW LINT ME
-    csv_path = '/home/wildme/tmp/photosIDMap.csv'
-    # /TODO
-    with open(csv_path, 'r') as f:
-        reader = csv.DictReader(f)
-        csv_dicts = [{k: v for k, v in row.items()} for row in reader]
-
-    fname_to_name = {row['ImageFile']: row['Name'] for row in csv_dicts}
-    fnames_with_names = set(fname_to_name.keys())
-    nameless_names = [
-        fname_to_name[fn] if fn in fnames_with_names else '____' for fn in nameless_fnames
-    ]
-    ibs.set_annot_name_texts(nameless_aids, nameless_names)
-
-
 def _pie_accuracy(ibs, qaid, daid_list, config_path=None):
     if config_path is None:
         config_path = _pie_config_fpath(ibs, [qaid])
@@ -1360,11 +1260,6 @@ def pie_accuracy(
 ):
     if config_path is None:
         config_path = _pie_config_fpath(ibs, aid_list)
-
-    # TODO: DREW LINT ME
-    # with open(config_path) as config_buffer:
-    #     config = json.loads(config_buffer.read())
-    # /TODO
 
     if daid_list is None:
         daid_list = aid_list
