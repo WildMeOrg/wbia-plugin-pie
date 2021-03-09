@@ -78,10 +78,19 @@ def pairwise_distance(feature, squared=False):
     )
 
     num_data = array_ops.shape(feature)[0]
+
     # Explicitly set diagonals to zero.
+
+    # import utool as ut
+    # ut.embed()
+    # mask_offdiagonals = array_ops.ones_like(pairwise_distances) - array_ops.diag(
+    #     array_ops.ones([num_data])
+    # )
     mask_offdiagonals = array_ops.ones_like(pairwise_distances) - array_ops.diag(
-        array_ops.ones([num_data])
+        array_ops.ones(array_ops.shape(feature))[:,0]
     )
+
+
     pairwise_distances = math_ops.multiply(pairwise_distances, mask_offdiagonals)
     return pairwise_distances
 
@@ -194,6 +203,8 @@ def triplet_semihard_loss(y_true, y_preds, margin=0.5):
     labels = array_ops.reshape(labels, [lshape[0], 1])
 
     # Build pairwise squared distance matrix.
+    # import utool as ut
+    # ut.embed()
     pdist_matrix = pairwise_distance(embeddings, squared=True)
     # Build pairwise binary adjacency matrix.
     adjacency = math_ops.equal(labels, array_ops.transpose(labels))
@@ -241,9 +252,13 @@ def triplet_semihard_loss(y_true, y_preds, margin=0.5):
 
     loss_mat = math_ops.add(margin, pdist_matrix - semi_hard_negatives)
 
+    # mask_positives = math_ops.cast(adjacency, dtype=dtypes.float32) - array_ops.diag(
+    #     array_ops.ones(batch_size)
+    # )
     mask_positives = math_ops.cast(adjacency, dtype=dtypes.float32) - array_ops.diag(
-        array_ops.ones([batch_size])
+        array_ops.ones(array_ops.shape(labels))[:,0]
     )
+
 
     # In lifted-struct, the authors multiply 0.5 for upper triangular
     #   in semihard, they take all positive pairs except the diagonal.

@@ -3,9 +3,9 @@ import numpy as np
 from keras.optimizers import Adam
 import keras.backend as K
 from keras.preprocessing.image import ImageDataGenerator
-import sys, os
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-from model.base_model import BaseModel
+from scipy.special import comb
+
+from base_model import BaseModel
 from ..utils.tensorflow_losses import triplet_semihard_loss
 from ..utils.custom_losses import (
     triplet_pose_loss,
@@ -15,7 +15,6 @@ from ..utils.custom_losses import (
 )
 from ..utils.utils import plot_model_loss_csv
 from ..utils.utils import make_batches
-from scipy.special import comb
 from ..evaluation.metrics import distance
 
 
