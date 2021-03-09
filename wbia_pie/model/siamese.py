@@ -11,6 +11,7 @@ from ..evaluation.metrics import contrastive_loss
 from ..utils.utils import make_batches, plot_model_loss_acc_csv
 from base_model import BaseModel
 
+
 class Siamese(BaseModel):
     def __init__(
         self,

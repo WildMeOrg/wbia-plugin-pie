@@ -1,22 +1,31 @@
 # -*- coding: utf-8 -*-
 from keras.models import Model
-import numpy as np
 from keras.layers import (
-    Reshape,
-    Activation,
+    # Reshape,
+    # Activation,
     Conv2D,
     Input,
     MaxPooling2D,
     BatchNormalization,
-    Flatten,
-    Dense,
-    Lambda,
+    # Flatten,
+    # Dense,
+    # Lambda,
 )
-from keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input as mobilenetv2_preprocess_input
+from keras.applications.mobilenet_v2 import (
+    MobileNetV2,
+    preprocess_input as mobilenetv2_preprocess_input,
+)
 from keras.applications.vgg16 import VGG16
 from keras.applications.resnet50 import ResNet50
-from keras.applications.densenet import DenseNet121, preprocess_input as densenet121_preprocess_input
-from keras.applications.densenet import DenseNet201, preprocess_input as densenet201_preprocess_input
+from keras.applications.densenet import (
+    DenseNet121,
+    preprocess_input as densenet121_preprocess_input,
+)
+from keras.applications.densenet import (
+    DenseNet201,
+    preprocess_input as densenet201_preprocess_input,
+)
+
 # from keras.applications.efficientnet import EfficientNetB2, preprocess_input as efficientnetb2_preprocess_input
 from keras.applications import InceptionResNetV2, InceptionV3
 

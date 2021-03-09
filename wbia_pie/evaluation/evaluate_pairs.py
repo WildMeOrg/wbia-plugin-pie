@@ -4,13 +4,13 @@ import matplotlib
 
 matplotlib.use('Agg')
 
-import numpy as np
-import os
-from sklearn import metrics
-from scipy import interpolate
-import matplotlib.pyplot as plt
+import numpy as np  # NOQA
+import os  # NOQA
+from sklearn import metrics  # NOQA
+from scipy import interpolate  # NOQA
+import matplotlib.pyplot as plt  # NOQA
 
-import sys
+import sys  # NOQA
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 

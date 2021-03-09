@@ -7,9 +7,11 @@ from keras.callbacks import Callback
 
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/utils')
-from backend import (
+
+from backend import (  # NOQA
     DummyNetFeature,
     InceptionV3Feature,
     VGG16Feature,
@@ -18,12 +20,12 @@ from backend import (
     DenseNet121Feature,
     DenseNet201Feature,
     # EfficientNetB2Feature,
-)
-from backend import InceptionResNetV2Feature
-from utils import make_batches
-from top_models import glob_pool_norm, glob_pool, glob_softmax
-from keras.callbacks import EarlyStopping, ModelCheckpoint, CSVLogger
-import keras.backend as K
+)  # NOQA
+from backend import InceptionResNetV2Feature  # NOQA
+from utils import make_batches  # NOQA
+from top_models import glob_pool_norm, glob_pool, glob_softmax  # NOQA
+from keras.callbacks import EarlyStopping, ModelCheckpoint, CSVLogger  # NOQA
+import keras.backend as K  # NOQA
 
 
 class CyclicLR(Callback):
@@ -85,8 +87,16 @@ class CyclicLR(Callback):
             iterations since start of cycle). Default is 'cycle'.
     """
 
-    def __init__(self, base_lr=0.001, max_lr=0.006, step_size=2000., mode='triangular',
-                 gamma=1., scale_fn=None, scale_mode='cycle'):
+    def __init__(
+        self,
+        base_lr=0.001,
+        max_lr=0.006,
+        step_size=2000.0,
+        mode='triangular',
+        gamma=1.0,
+        scale_fn=None,
+        scale_mode='cycle',
+    ):
         super(CyclicLR, self).__init__()
 
         self.base_lr = base_lr
@@ -96,25 +106,24 @@ class CyclicLR(Callback):
         self.gamma = gamma
         if scale_fn is None:
             if self.mode == 'triangular':
-                self.scale_fn = lambda x: 1.
+                self.scale_fn = lambda x: 1.0
                 self.scale_mode = 'cycle'
             elif self.mode == 'triangular2':
-                self.scale_fn = lambda x: 1 / (2.**(x - 1))
+                self.scale_fn = lambda x: 1 / (2.0 ** (x - 1))
                 self.scale_mode = 'cycle'
             elif self.mode == 'exp_range':
-                self.scale_fn = lambda x: gamma**(x)
+                self.scale_fn = lambda x: gamma ** (x)
                 self.scale_mode = 'iterations'
         else:
             self.scale_fn = scale_fn
             self.scale_mode = scale_mode
-        self.clr_iterations = 0.
-        self.trn_iterations = 0.
+        self.clr_iterations = 0.0
+        self.trn_iterations = 0.0
         self.history = {}
 
         self._reset()
 
-    def _reset(self, new_base_lr=None, new_max_lr=None,
-               new_step_size=None):
+    def _reset(self, new_base_lr=None, new_max_lr=None, new_step_size=None):
         """Resets cycle iterations.
         Optional boundary/step size adjustment.
         """
@@ -124,15 +133,19 @@ class CyclicLR(Callback):
             self.max_lr = new_max_lr
         if new_step_size is not None:
             self.step_size = new_step_size
-        self.clr_iterations = 0.
+        self.clr_iterations = 0.0
 
     def clr(self):
         cycle = np.floor(1 + self.clr_iterations / (2 * self.step_size))
         x = np.abs(self.clr_iterations / self.step_size - 2 * cycle + 1)
         if self.scale_mode == 'cycle':
-            return self.base_lr + (self.max_lr - self.base_lr) * np.maximum(0, (1 - x)) * self.scale_fn(cycle)
+            return self.base_lr + (self.max_lr - self.base_lr) * np.maximum(
+                0, (1 - x)
+            ) * self.scale_fn(cycle)
         else:
-            return self.base_lr + (self.max_lr - self.base_lr) * np.maximum(0, (1 - x)) * self.scale_fn(self.clr_iterations)
+            return self.base_lr + (self.max_lr - self.base_lr) * np.maximum(
+                0, (1 - x)
+            ) * self.scale_fn(self.clr_iterations)
 
     def on_train_begin(self, logs={}):
         logs = logs or {}
@@ -155,7 +168,6 @@ class CyclicLR(Callback):
             self.history.setdefault(k, []).append(v)
 
         K.set_value(self.model.optimizer.lr, self.clr())
-
 
 
 class BaseModel(object):
@@ -261,7 +273,10 @@ class BaseModel(object):
 
         # do some augmentation here
         use_augmentation = augmentation_seed is not None
-        print('use_augmentation = %s and augmentation_seed = %s' % (use_augmentation, augmentation_seed))
+        print(
+            'use_augmentation = %s and augmentation_seed = %s'
+            % (use_augmentation, augmentation_seed)
+        )
         if use_augmentation:
             gen_args = dict(
                 rotation_range=30,
@@ -279,7 +294,9 @@ class BaseModel(object):
         for sid, eid in batch_idx:
             if use_augmentation:
                 # [0] found experimentally
-                preproc = aug_gen.flow(imgs[sid:eid], batch_size=batch_size, seed=augmentation_seed)
+                preproc = aug_gen.flow(
+                    imgs[sid:eid], batch_size=batch_size, seed=augmentation_seed
+                )
                 assert len(preproc) == 1
                 assert len(preproc[0]) <= batch_size
                 preproc = preproc[0]
@@ -299,7 +316,8 @@ class BaseModel(object):
             )
         elif self.frontend == 'glob_pool':
             self.top_model = glob_pool(
-                embedding_size=self.embedding_size, backend_model=self.backend_model)
+                embedding_size=self.embedding_size, backend_model=self.backend_model
+            )
         elif self.frontend == 'glob_softmax':
             self.top_model = glob_softmax(
                 embedding_size=self.embedding_size, backend_model=self.backend_model
@@ -311,8 +329,10 @@ class BaseModel(object):
         self.set_trainable()
 
     def get_connect_layer(self, connect_layer):
-        """If connect_layer is a string (layer name), return layer index.
-        If connect layer is a negative integer, return positive layer index."""
+        """
+        If connect_layer is a string (layer name), return layer index.
+        If connect layer is a negative integer, return positive layer index.
+        """
         index = None
         if isinstance(connect_layer, str):
             for idx, layer in enumerate(self.feature_extractor.layers):
@@ -335,8 +355,10 @@ class BaseModel(object):
         return index
 
     def get_train_from_layer(self, train_from_layer):
-        """If train_from_layer is a string (layer name), return layer index.
-        If train_from_layer layer is a negative integer, return positive layer index."""
+        """
+        If train_from_layer is a string (layer name), return layer index.
+        If train_from_layer layer is a negative integer, return positive layer index.
+        """
         index = None
         if isinstance(train_from_layer, str):
             for idx, layer in enumerate(self.feature_extractor.layers):
@@ -395,7 +417,7 @@ class BaseModel(object):
         for i in range(backend_model_len):
             self.top_model.layers[i].trainable = False
         # for layer in self.top_model.layers:
-            # print(layer.name, layer.trainable)
+        # print(layer.name, layer.trainable)
 
         # Compile the model
         self.compile_model(learning_rate)
@@ -405,7 +427,9 @@ class BaseModel(object):
         callbacks = [csv_logger]
 
         if self.optimizer == 'sgd':
-            clr = CyclicLR(base_lr=learning_rate, max_lr=0.0001, step_size=2000., mode='triangular2')
+            clr = CyclicLR(
+                base_lr=learning_rate, max_lr=0.0001, step_size=2000.0, mode='triangular2'
+            )
             callbacks.append(clr)
 
         self.model.fit_generator(
@@ -468,7 +492,9 @@ class BaseModel(object):
         callbacks = [early_stop, checkpoint, csv_logger]
 
         if self.optimizer == 'sgd':
-            clr = CyclicLR(base_lr=learning_rate, max_lr=0.006, step_size=2000., mode='triangular2')
+            clr = CyclicLR(
+                base_lr=learning_rate, max_lr=0.006, step_size=2000.0, mode='triangular2'
+            )
             callbacks.append(clr)
 
         ############################################

@@ -5,9 +5,11 @@ from sklearn.utils import shuffle
 
 import os
 import sys
+
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))  # models subdir
-from utils import rem_dupl
-from metrics import acck, mapk
+
+from utils import rem_dupl  # NOQA
+from metrics import acck, mapk  # NOQA
 
 
 def evaluate_1_vs_all(
@@ -48,7 +50,9 @@ def evaluate_1_vs_all(
         print('Number of classes in query set: ', len(db_emb))
 
         for j in range(len(db_emb)):
-            neigh_lbl_un, _, _ = predict_k_neigh(db_emb[j], db_lbl[j], query_emb[j], k=max_k)
+            neigh_lbl_un, _, _ = predict_k_neigh(
+                db_emb[j], db_lbl[j], query_emb[j], k=max_k
+            )
             neigh_lbl_run.append(neigh_lbl_un)
 
         query_lbl = flatten(query_lbl)
@@ -80,7 +84,9 @@ def evaluate_1_vs_all(
     return dict(zip(k_list, acc_runs)), dict(zip(k_list, std_runs))
 
 
-def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None, nearest_neighbors_cache_path=None):
+def predict_k_neigh(
+    db_emb, db_lbls, test_emb, k=5, f=None, nearest_neighbors_cache_path=None
+):
     """Predict k nearest solutions for test embeddings based on labelled database embeddings.
     Input:
     db_emb: 2D float array (num_emb, emb_size): database embeddings
@@ -102,22 +108,25 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None, nearest_neighbors_ca
     else:
         import utool as ut
         from six.moves import cPickle as pickle  # NOQA
-        import utool as ut
 
         assert os.path.exists(nearest_neighbors_cache_path)
 
         db_emb_hash = list(map(ut.hash_data, db_emb))
         db_data = list(zip(db_emb_hash, db_lbls))
         db_data = sorted(db_data)
-        db_data = '%s' % (db_data, )
+        db_data = '%s' % (db_data,)
         db_data_hash = ut.hash_data(db_data)
-        args = (len(db_emb), db_data_hash, k_w_dupl, )
+        args = (
+            len(db_emb),
+            db_data_hash,
+            k_w_dupl,
+        )
         cache_filename = 'pie-kneigh-num-%d-hash-%s-k-%d.cPkl' % args
         cache_filepath = os.path.join(nearest_neighbors_cache_path, cache_filename)
 
     nn_classifier = None
     if cache_filepath is not None and os.path.exists(cache_filepath):
-        print('[pie] Found existing K Nearest Neighbors cache at: %r' % (cache_filepath, ))
+        print('[pie] Found existing K Nearest Neighbors cache at: %r' % (cache_filepath,))
         try:
             with open(cache_filepath, 'rb') as pickle_file:
                 nn_classifier = pickle.load(pickle_file)
@@ -132,7 +141,7 @@ def predict_k_neigh(db_emb, db_lbls, test_emb, k=5, f=None, nearest_neighbors_ca
 
     if cache_filepath is not None and not os.path.exists(cache_filepath):
         assert nn_classifier is not None
-        print('[pie] Creating new K Nearest Neighbors cache at: %r' % (cache_filepath, ))
+        print('[pie] Creating new K Nearest Neighbors cache at: %r' % (cache_filepath,))
         with open(cache_filepath, 'wb') as pickle_file:
             pickle.dump(nn_classifier, pickle_file)
         print('[pie] pie cache saved!')

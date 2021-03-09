@@ -1,3 +1,4 @@
+h5py<=3.0.0
 # keras >= 2.2
 matplotlib
 networkx
@@ -7,6 +8,5 @@ scikit-image
 scikit-learn
 scipy
 tensorflow==1.15.4
-h5py<=3.0.0
 # wildbook-ia
 # wbia-utool

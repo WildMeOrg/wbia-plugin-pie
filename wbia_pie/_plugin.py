@@ -7,7 +7,6 @@ import numpy as np
 import os
 import json
 import shutil
-import cv2
 
 try:
     import wbia
@@ -66,7 +65,7 @@ MODEL_URLS = {
 
 CONFIG_FPATHS = {
     'mobula_birostris': os.path.join(_PLUGIN_FOLDER, 'configs/manta.json'),
-    'mobula_alfredi' : os.path.join(_PLUGIN_FOLDER, 'configs/manta.json'),
+    'mobula_alfredi': os.path.join(_PLUGIN_FOLDER, 'configs/manta.json'),
     'aetomylaeus_bovinus': os.path.join(_PLUGIN_FOLDER, 'configs/manta.json'),
     'manta_ray_giant': os.path.join(_PLUGIN_FOLDER, 'configs/manta.json'),
     'megaptera_novaeangliae': os.path.join(_PLUGIN_FOLDER, 'configs/whale.json'),
@@ -78,7 +77,9 @@ CONFIG_FPATHS = {
     'eubalaena_glacialis': os.path.join(_PLUGIN_FOLDER, 'configs/rw-v18.json'),
     'whale_fluke': os.path.join(_PLUGIN_FOLDER, 'configs/whale.json'),
     'whale_humpback+fluke': os.path.join(_PLUGIN_FOLDER, 'configs/whale.json'),
-    'whale_orca+fin_dorsal': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy-saddle.json'),
+    'whale_orca+fin_dorsal': os.path.join(
+        _PLUGIN_FOLDER, 'configs/orca-deploy-saddle.json'
+    ),
     'whale_orca': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
     'orcinus_orca': os.path.join(_PLUGIN_FOLDER, 'configs/orca-deploy.json'),
     'eschrichtius_robustus': os.path.join(_PLUGIN_FOLDER, 'configs/gw-rc.json'),
@@ -86,7 +87,18 @@ CONFIG_FPATHS = {
 }
 
 
-FLIP_RIGHTSIDE_MODELS = {'right_whale+head_lateral', 'right_whale+head', 'right_whale_head', 'eubalaena_australis', 'eubalaena_glacialis', 'whale_orca+fin_dorsal', 'orcinus_orca', 'whale_orca', 'eschrichtius_robustus', 'whale_grey'}
+FLIP_RIGHTSIDE_MODELS = {
+    'right_whale+head_lateral',
+    'right_whale+head',
+    'right_whale_head',
+    'eubalaena_australis',
+    'eubalaena_glacialis',
+    'whale_orca+fin_dorsal',
+    'orcinus_orca',
+    'whale_orca',
+    'eschrichtius_robustus',
+    'whale_grey',
+}
 RIGHT_FLIP_LIST = [  # CASE IN-SINSITIVE
     'right',
     'r',
@@ -101,7 +113,7 @@ def pie_uses_special_annots(ibs, aid_list):
 
 @register_ibs_method
 def pie_uses_special_annots(ibs, aid_list):
-    if aid_list is None or len(aid_list) is 0:
+    if aid_list is None or len(aid_list) == 0:
         return False
     species = ibs.get_annot_species(aid_list[0])
     return species in SPECIAL_PIE_ANNOT_MAP.keys()
@@ -201,8 +213,9 @@ def pie_embedding(ibs, aid_list, config_path=None, augmentation_seed=None, use_d
             'PieEmbedding', aid_list, 'embedding', config=config
         )
     else:
-        embeddings = pie_compute_embedding(ibs, aid_list, config_path=config_path,
-            augmentation_seed=augmentation_seed)
+        embeddings = pie_compute_embedding(
+            ibs, aid_list, config_path=config_path, augmentation_seed=augmentation_seed
+        )
 
     return embeddings
 
@@ -226,8 +239,12 @@ class PieEmbeddingConfig(dt.Config):  # NOQA
 @register_ibs_method
 def pie_embedding_depc(depc, aid_list, config):
     ibs = depc.controller
-    embs = pie_compute_embedding(ibs, aid_list, config_path=config['config_path'],
-                                 augmentation_seed=config['augmentation_seed'])
+    embs = pie_compute_embedding(
+        ibs,
+        aid_list,
+        config_path=config['config_path'],
+        augmentation_seed=config['augmentation_seed'],
+    )
     for aid, emb in zip(aid_list, embs):
         yield (np.array(emb),)
 
@@ -235,7 +252,13 @@ def pie_embedding_depc(depc, aid_list, config):
 # TODO: delete the generated files in dbpath when we're done computing embeddings
 @register_ibs_method
 def pie_compute_embedding(
-    ibs, aid_list, config_path=None, output_dir=None, prefix=None, export=False, augmentation_seed=None,
+    ibs,
+    aid_list,
+    config_path=None,
+    output_dir=None,
+    prefix=None,
+    export=False,
+    augmentation_seed=None,
 ):
     if config_path is None:
         config_path = _pie_config_fpath(ibs, aid_list)
@@ -243,7 +266,7 @@ def pie_compute_embedding(
     pie_aids = aid_list
     use_special_aids = ibs.pie_uses_special_annots(aid_list)
     if use_special_aids:
-        print("USE_SPECIAL_AIDS case in pie_compute_embedding")
+        print('USE_SPECIAL_AIDS case in pie_compute_embedding')
         species = ibs.get_annot_species(aid_list[0])
         new_aids = SPECIAL_PIE_ANNOT_MAP[species]['modifying_func'](ibs, aid_list)
         pie_aids = new_aids
@@ -255,7 +278,9 @@ def pie_compute_embedding(
     _ensure_model_exists(ibs, aid_list, config_path)
 
     embeddings, filepaths = compute(preproc_dir, config_path, output_dir, prefix, export)
-    embeddings = fix_pie_embedding_order(ibs, embeddings, pie_aids, filepaths, config_path)
+    embeddings = fix_pie_embedding_order(
+        ibs, embeddings, pie_aids, filepaths, config_path
+    )
 
     # want to delete new_aids here
     if use_special_aids:
@@ -335,7 +360,9 @@ def pie_preprocess(ibs, aid_list, config_path=None):
 
     output_dir = pie_preproc_dir(aid_list, config_path)
     label_file_path = os.path.join(output_dir, 'name_map.csv')
-    label_file = ibs.pie_name_csv(aid_list, fpath=label_file_path, config_path=config_path)
+    label_file = ibs.pie_name_csv(
+        aid_list, fpath=label_file_path, config_path=config_path
+    )
 
     with open(config_path, 'r') as f:
         pie_config = json.load(f)
@@ -390,13 +417,13 @@ def pie_name_csv(ibs, aid_list, fpath=None, config_path=None):
 
 @register_ibs_method
 def pie_annot_embedding_chip_fpaths(ibs, aid_list, pie_config):
-    width  = int(pie_config['model']['input_width'])
+    width = int(pie_config['model']['input_width'])
     height = int(pie_config['model']['input_height'])
 
     chip_config = {
         'dim_size': (width, height),
         'resize_dim': 'wh',
-        'ext': '.png',  ## example images are .png
+        'ext': '.png',  # example images are .png
     }
 
     # flip right images if necessary
@@ -417,7 +444,9 @@ def pie_annot_embedding_chip_fpaths(ibs, aid_list, pie_config):
     flip_config['flip_horizontal'] = True
 
     flip_fpaths = ibs.get_annot_chip_fpath(flip_aids, ensure=True, config2_=flip_config)
-    unflipped_fpaths = ibs.get_annot_chip_fpath(unflipped_aids, ensure=True, config2_=chip_config)
+    unflipped_fpaths = ibs.get_annot_chip_fpath(
+        unflipped_aids, ensure=True, config2_=chip_config
+    )
 
     # maybe not pythonic, but it works! (untested) (lol)
     flip_index = 0
@@ -557,9 +586,10 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
     query_aug_seeds = config['query_aug_seeds']
     db_aug_seeds = config['db_aug_seeds']
     assert len(query_aug_seeds) > 0
-    assert len(db_aug_seeds)    > 0
+    assert len(db_aug_seeds) > 0
 
     import itertools as it
+
     all_aug_seed_pairs = it.product(query_aug_seeds, db_aug_seeds)
     # herein 'pie_' prefix means the var is in the original PIE match result format,
     # a list of {"label": ____, "distance": ____} dicts.
@@ -567,8 +597,12 @@ def wbia_plugin_pie(depc, qaid_list, daid_list, config):
 
     # get name scores for every pair of augmentation seeds
     for query_aug_seed, db_aug_seed in all_aug_seed_pairs:
-        pie_name_dists  = ibs.pie_predict_light(
-            qaid, daids, config['config_path'], query_aug_seed, db_aug_seed,
+        pie_name_dists = ibs.pie_predict_light(
+            qaid,
+            daids,
+            config['config_path'],
+            query_aug_seed,
+            db_aug_seed,
         )
         # pie_name_dists looks like
         # [{'distance': 0.4188250198219591, 'label': '2642'},
@@ -606,6 +640,7 @@ def distance_dicts_to_score_dicts(distance_dicts, conversion_func=distance_to_sc
 # list_of_name_score_dicts is a list of original-PIE-formatted name_score_dicts lists (list of list of dicts)
 def average_pie_name_score_dicts(list_of_name_score_dicts):
     from collections import defaultdict
+
     name_to_score = defaultdict(float)
 
     # NOTE: this implicitly adds a score of 0 any time a name does not have a score in a given pie_name_score_dicts
@@ -630,13 +665,17 @@ def aid_scores_from_name_scores(ibs, name_score_dict, daid_list):
     # ut.embed()
     daid_name_list = list(_db_labels_for_pie(ibs, daid_list))
 
-    name_count_dict = {name: daid_name_list.count(name)
-        for name in name_score_dict.keys()}
+    name_count_dict = {
+        name: daid_name_list.count(name) for name in name_score_dict.keys()
+    }
 
-    name_annotwise_score_dict = {name: name_score_dict[name] / name_count_dict[name]
-        for name in name_score_dict.keys()}
+    name_annotwise_score_dict = {
+        name: name_score_dict[name] / name_count_dict[name]
+        for name in name_score_dict.keys()
+    }
 
     from collections import defaultdict
+
     name_annotwise_score_dict = defaultdict(float, name_annotwise_score_dict)
 
     # bc daid_name_list is in the same order as daid_list
@@ -670,7 +709,15 @@ def aid_scores_from_name_score_dicts(ibs, name_score_dicts, daid_list):
 
 
 @register_ibs_method
-def pie_predict_light(ibs, qaid, daid_list, config_path=None, query_aug_seed=None, db_aug_seed=None, n_results=100):
+def pie_predict_light(
+    ibs,
+    qaid,
+    daid_list,
+    config_path=None,
+    query_aug_seed=None,
+    db_aug_seed=None,
+    n_results=100,
+):
     r"""
     Matches an annotation using PIE, by calling PIE's k-means distance measure on PIE embeddings.
 
@@ -712,7 +759,7 @@ def pie_predict_light(ibs, qaid, daid_list, config_path=None, query_aug_seed=Non
         >>>     assert diff < 1e-6
     """
     # now get the embeddings into the shape and type PIE expects
-    print("pie_predict_light called")
+    print('pie_predict_light called')
     if config_path is None:
         config_path = _pie_config_fpath(ibs, [qaid])
 
@@ -755,8 +802,13 @@ def pie_predict_light_2(ibs, qaid, daid_list, config_path=None):
     nearest_neighbors_cache_path = os.path.join(ibs.cachedir, 'pie_neighbors')
     ut.ensuredir(nearest_neighbors_cache_path)
 
-    ans = pred_light(query_emb, db_embs, db_labels, config_path,
-                     nearest_neighbors_cache_path=nearest_neighbors_cache_path)
+    ans = pred_light(
+        query_emb,
+        db_embs,
+        db_labels,
+        config_path,
+        nearest_neighbors_cache_path=nearest_neighbors_cache_path,
+    )
     return ans
 
 
@@ -774,8 +826,13 @@ def pie_predict(ibs, qaid, daid_list, config_path=None, display=False):
     nearest_neighbors_cache_path = os.path.join(ibs.cachedir, 'pie_neighbors')
     ut.ensuredir(nearest_neighbors_cache_path)
 
-    ans = predict(impath, config, config_path, display,
-                  nearest_neighbors_cache_path=nearest_neighbors_cache_path)
+    ans = predict(
+        impath,
+        config,
+        config_path,
+        display,
+        nearest_neighbors_cache_path=nearest_neighbors_cache_path,
+    )
     return ans
 
 
@@ -784,7 +841,6 @@ def pie_predict(ibs, qaid, daid_list, config_path=None, display=False):
 def pie_predict_prepare_config(ibs, daid_list, base_config_file=None):
     if config_path is None:
         config_path = _pie_config_fpath(ibs, aid_list)
-
 
     pred_data_dir = ibs.pie_ensure_predict_datafiles(daid_list)
 
@@ -888,36 +944,43 @@ def pie_training(ibs, training_aids, base_config_path=_DEFAULT_CONFIG, test_aids
 
     from .train import train
     import datetime
+
     print('%s: about to train' % datetime.datetime.now())
     ans = train(config)
     print('%s: done training' % datetime.datetime.now())
     return ans
 
 
-@register_ibs_method
-    # TODO: do we change the config file?
-    # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
-    from .evaluate import evaluate
-    import datetime
-    print('%s: about to evaluate' % datetime.datetime.now())
-    ans = evaluate(config_path)
-    print('%s: done evaluating' % datetime.datetime.now())
-    return ans
+# TODO: DREW LINT ME
+# @register_ibs_method
+#     # TODO: do we change the config file?
+#     # preproc_dir = ibs.pie_preprocess(training_aids, base_config_path)
+#     from .evaluate import evaluate
+#     import datetime
+#     print('%s: about to evaluate' % datetime.datetime.now())
+#     ans = evaluate(config_path)
+#     print('%s: done evaluating' % datetime.datetime.now())
+#     return ans
 
 
 def _prepare_training_images(ibs, aid_list, pie_config, test_aid_list=None):
 
     # Optional test set error handling
     test_image_dir = pie_config['evaluate']['test_set']
-    config_has_test = (test_image_dir != None and test_image_dir != '')
-    test_aids_provided = (test_aid_list is not None and len(test_aid_list) > 0)
-    assert(config_has_test == test_aids_provided,
-        "Must define both test set imagefolder and test_aids, or neither")
+    config_has_test = test_image_dir is not None and test_image_dir != ''
+    test_aids_provided = test_aid_list is not None and len(test_aid_list) > 0
+    assert (
+        config_has_test == test_aids_provided
+    ), 'Must define both test set imagefolder and test_aids, or neither'
     use_test_aids = config_has_test and test_aids_provided
     if use_test_aids:
-        assert(len(set(aid_list) & set(test_aid_list)) is 0,
-            "aid_list and test_aids must be mutually exclusive")
-        print("Using %s test_aids as specified during pie_training, about to _copy_training_images" % len(test_aid_list))
+        assert (
+            len(set(aid_list) & set(test_aid_list)) == 0
+        ), 'aid_list and test_aids must be mutually exclusive'
+        print(
+            'Using %s test_aids as specified during pie_training, about to _copy_training_images'
+            % len(test_aid_list)
+        )
         _copy_training_images(ibs, test_aid_list, test_image_dir, pie_config)
 
     # now just handle normal train images
@@ -933,7 +996,7 @@ def _copy_training_images(ibs, aid_list, target_dir, pie_config):
 
     # copy resized annot chips into name-based subfolders
     names = ibs.get_annot_name_texts(aid_list)
-    print("calling _annot_training_chip_fpaths in _copy_training_images")
+    print('calling _annot_training_chip_fpaths in _copy_training_images')
     #  chip_paths = ibs.pie_annot_training_chip_fpaths(aid_list, pie_config)
     chip_paths = ibs.pie_annot_embedding_chip_fpaths(aid_list, pie_config)
 
@@ -945,13 +1008,13 @@ def _copy_training_images(ibs, aid_list, target_dir, pie_config):
 
 def _config_has_test_dir(pie_config):
     test_dir = pie_config['evaluate']['test_set']
-    test_dir_defined = (test_dir != None and test_dir != '')
+    test_dir_defined = test_dir is not None and test_dir != ''
     return test_dir_defined
 
 
 @register_ibs_method
 def pie_annot_training_chip_fpaths(ibs, aid_list, pie_config, flip_horizontal=False):
-    width  = int(pie_config['model']['input_width'])
+    width = int(pie_config['model']['input_width'])
     height = int(pie_config['model']['input_height'])
 
     # if undefined, assume no bg subtract
@@ -961,16 +1024,20 @@ def pie_annot_training_chip_fpaths(ibs, aid_list, pie_config, flip_horizontal=Fa
     pie_aids = aid_list
     use_special_aids = ibs.pie_uses_special_annots(aid_list)
     if use_special_aids:
-        print("USE_SPECIAL_AIDS case in pie_annot_training_chip_fpaths")
+        print('USE_SPECIAL_AIDS case in pie_annot_training_chip_fpaths')
         species = ibs.get_annot_species(aid_list[0])
         new_aids = SPECIAL_PIE_ANNOT_MAP[species]['modifying_func'](ibs, aid_list)
         pie_aids = new_aids
 
     if use_background_subtract:
         print('BACKGROUND SUBTRACT is being applied on _annot_training_chip_fpaths')
-        fpaths = background_subtracted_training_chip_fpath(ibs, pie_aids, width, height, pie_config, flip_horizontal=flip_horizontal)
+        fpaths = background_subtracted_training_chip_fpath(
+            ibs, pie_aids, width, height, pie_config, flip_horizontal=flip_horizontal
+        )
     else:
-        fpaths = _training_chip_fpath_helper(ibs, pie_aids, width, height, flip_horizontal)
+        fpaths = _training_chip_fpath_helper(
+            ibs, pie_aids, width, height, flip_horizontal
+        )
 
     return fpaths
 
@@ -979,7 +1046,7 @@ def _training_chip_fpath_helper(ibs, aid_list, width, height, flip_horizontal=Fa
     chip_config = {
         'dim_size': (width, height),
         'resize_dim': 'wh',
-        'ext': '.png',  ## example images are .png
+        'ext': '.png',  # example images are .png
     }
     if flip_horizontal:
         chip_config['flip_horizontal'] = True
@@ -993,7 +1060,9 @@ def _bg_subtract_chip_path(pie_config, default_path='/tmp/training_chips'):
 
 
 @register_ibs_method
-def background_subtracted_training_chip_fpath(ibs, aid_list, width, height, pie_config, output_path=None, flip_horizontal=False):
+def background_subtracted_training_chip_fpath(
+    ibs, aid_list, width, height, pie_config, output_path=None, flip_horizontal=False
+):
 
     if output_path is None:
         output_path = _bg_subtract_chip_path(pie_config)
@@ -1003,7 +1072,9 @@ def background_subtracted_training_chip_fpath(ibs, aid_list, width, height, pie_
     }
     mask_path_list = ibs.get_annot_probchip_fpath(aid_list, config2_=config2_)
     mask_list = [vt.imread(mask_path) for mask_path in mask_path_list]
-    chip_path_list = _training_chip_fpath_helper(ibs, aid_list, width, height, flip_horizontal)
+    chip_path_list = _training_chip_fpath_helper(
+        ibs, aid_list, width, height, flip_horizontal
+    )
     chip_list = [vt.imread(chip_path) for chip_path in chip_path_list]
 
     # just used for file naming
@@ -1014,9 +1085,10 @@ def background_subtracted_training_chip_fpath(ibs, aid_list, width, height, pie_
     zipped = zip(aid_list, gid_list, species_list, mask_list, chip_list)
 
     import cv2
+
     for index, (aid, gid, species, mask_img, chip) in enumerate(zipped):
         mask = vt.resize_mask(mask_img, chip)
-        if (flip_horizontal):
+        if flip_horizontal:
             # note: this is untested but should work
             mask = np.fliplr(mask)
         blended = vt.blend_images_multiply(chip, mask)
@@ -1054,10 +1126,14 @@ def pie_annot_embedding_chip_fpaths(ibs, aid_list, pie_config):
     flip_aids = ut.compress(aid_list, flip_list)
     unflipped_aids = ut.compress(aid_list, [not flip for flip in flip_list])
 
-    print("computing flip_fpaths")
-    flip_fpaths = ibs.pie_annot_training_chip_fpaths(flip_aids, pie_config, flip_horizontal=True)
-    print("computing unflipped_fpaths")
-    unflipped_fpaths = ibs.pie_annot_training_chip_fpaths(unflipped_aids, pie_config, flip_horizontal=False)
+    print('computing flip_fpaths')
+    flip_fpaths = ibs.pie_annot_training_chip_fpaths(
+        flip_aids, pie_config, flip_horizontal=True
+    )
+    print('computing unflipped_fpaths')
+    unflipped_fpaths = ibs.pie_annot_training_chip_fpaths(
+        unflipped_aids, pie_config, flip_horizontal=False
+    )
 
     # maybe not pythonic, but it works! (untested) (lol)
     flip_index = 0
@@ -1076,6 +1152,7 @@ def pie_annot_embedding_chip_fpaths(ibs, aid_list, pie_config):
 
 def csv_to_dicts(fname):
     import csv
+
     dicts = []
     with open(fname, 'r') as data:
         for line in csv.DictReader(data):
@@ -1086,8 +1163,9 @@ def csv_to_dicts(fname):
 def only_single_annot_images(ibs, aid_list):
     im_names = ibs.get_annot_image_names(aid_list)
     name_counts = _count_dict(im_names)
-    good_annots = [aid for (aid, im_name) in zip(aid_list, im_names)
-        if name_counts[im_name] == 1]
+    good_annots = [
+        aid for (aid, im_name) in zip(aid_list, im_names) if name_counts[im_name] == 1
+    ]
     return good_annots
 
 
@@ -1096,16 +1174,18 @@ def size_filter_aids(ibs, aid_list, min_width=448, min_height=224):
     widths = [bbox[2] for bbox in bboxes]
     heights = [bbox[3] for bbox in bboxes]
 
-    good_aids = [aid for (aid, w, h) in zip(aid_list, widths, heights) if
-                 w >= min_width and h >= min_height]
+    good_aids = [
+        aid
+        for (aid, w, h) in zip(aid_list, widths, heights)
+        if w >= min_width and h >= min_height
+    ]
     return good_aids
 
 
-def filter_out_viewpoints(ibs, aid_list, bad_views=['up','right','front']):
+def filter_out_viewpoints(ibs, aid_list, bad_views=['up', 'right', 'front']):
     bad_views = set(bad_views)
     views = ibs.get_annot_viewpoints(aid_list)
-    good_annots = [aid for (aid, view) in zip(aid_list, views)
-                   if view not in bad_views]
+    good_annots = [aid for (aid, view) in zip(aid_list, views) if view not in bad_views]
     return good_annots
 
 
@@ -1113,7 +1193,7 @@ def gradient_magnitude(arguments):
     import numpy as np
     import cv2
 
-    image_filepath, = arguments
+    (image_filepath,) = arguments
 
     image = cv2.imread(image_filepath)
     image = image.astype(np.float32)
@@ -1132,7 +1212,8 @@ def gradient_magnitude(arguments):
 
 def background_mask_points(arguments):
     import cv2
-    image_filepath, = arguments
+
+    (image_filepath,) = arguments
 
     margin = 8
     k = 13
@@ -1159,7 +1240,7 @@ def background_mask_points(arguments):
                 start_x = index
                 break
         start_y = int(np.around(np.mean(ut.flatten(np.argwhere(image[:, start_x] > 0)))))
-    except:
+    except Exception:
         return None, None
     try:
         image_y = np.sum(image, axis=1)
@@ -1168,7 +1249,7 @@ def background_mask_points(arguments):
                 end_y = index
                 break
         end_x = int(np.around(np.mean(ut.flatten(np.argwhere(image[end_y, :] > 0)))))
-    except:
+    except Exception:
         return None, None
 
     distance = np.sqrt((end_y - start_y) ** 2.0 + (end_x - start_x) ** 2.0)
@@ -1179,35 +1260,36 @@ def background_mask_points(arguments):
 
 
 def value_deltas(values):
-        assert None not in values
-        assert -1 not in values
-        previous = 0
-        delta_list = []
-        for value in values + [None]:
-            if value is None:
-                break
-            else:
-                try:
-                    delta = value - previous
-                except:
-                    delta = 0
-            assert delta >= 0
-            delta_list.append(delta)
-            previous = value
-        assert len(delta_list) == len(values)
-        delta_list = np.array(delta_list)
-        return delta_list
+    assert None not in values
+    assert -1 not in values
+    previous = 0
+    delta_list = []
+    for value in values + [None]:
+        if value is None:
+            break
+        else:
+            try:
+                delta = value - previous
+            except Exception:
+                delta = 0
+        assert delta >= 0
+        delta_list.append(delta)
+        previous = value
+    assert len(delta_list) == len(values)
+    delta_list = np.array(delta_list)
+    return delta_list
 
 
 def pie_apply_names(ibs, aid_list):
     names = ibs.get_annot_name_texts(aid_list)
-    nameless_aids = [aid for aid,name in zip(aid_list, names) if name == '____']
+    nameless_aids = [aid for aid, name in zip(aid_list, names) if name == '____']
 
     nameless_fnames = ibs.get_annot_image_paths(nameless_aids)
     nameless_fnames = [os.path.split(fn)[1] for fn in nameless_fnames]
 
     # load metadata file
     import csv
+
     csv_path = '/home/wildme/tmp/photosIDMap.csv'
     with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
@@ -1215,11 +1297,9 @@ def pie_apply_names(ibs, aid_list):
 
     fname_to_name = {row['ImageFile']: row['Name'] for row in csv_dicts}
     fnames_with_names = set(fname_to_name.keys())
-    nameless_names = [fname_to_name[fn]
-                      if fn in fnames_with_names
-                      else '____'
-                      for fn in nameless_fnames
-                      ]
+    nameless_names = [
+        fname_to_name[fn] if fn in fnames_with_names else '____' for fn in nameless_fnames
+    ]
     ibs.set_annot_name_texts(nameless_aids, nameless_names)
 
 
@@ -1242,6 +1322,7 @@ def _pie_accuracy(ibs, qaid, daid_list, config_path=None):
 
 def _count_dict(item_list):
     from collections import defaultdict, OrderedDict
+
     count_dict = defaultdict(int)
     for item in item_list:
         count_dict[item] += 1
@@ -1258,34 +1339,50 @@ def _name_hist(ibs, aid_list):
 
 
 @register_ibs_method
-def pie_accuracy(ibs, aid_list, daid_list=None, config_path=None, num_illustrations=0, illust_dir='/tmp/pie_accuracy/'):
+def pie_accuracy(
+    ibs,
+    aid_list,
+    daid_list=None,
+    config_path=None,
+    num_illustrations=0,
+    illust_dir='/tmp/pie_accuracy/',
+):
     if config_path is None:
         config_path = _pie_config_fpath(ibs, aid_list)
 
     with open(config_path) as config_buffer:
         config = json.loads(config_buffer.read())
-
 
     if daid_list is None:
         daid_list = aid_list
     ranks = [_pie_accuracy(ibs, aid, daid_list, config_path) for aid in aid_list]
 
     # make illustrations:
-    illustrate_pie(ibs, aid_list, daid_list, ranks, num_illustrations, config_path, illust_dir )
+    illustrate_pie(
+        ibs, aid_list, daid_list, ranks, num_illustrations, config_path, illust_dir
+    )
 
     # return accuracy at k
     accs = ibs.accuracy_at_k(ranks)
     return accs
 
 
-def illustrate_pie(ibs, qaid_list, daid_list, ranks, num_illustrations, config_path, illust_dir, rand_seed=777):
+def illustrate_pie(
+    ibs,
+    qaid_list,
+    daid_list,
+    ranks,
+    num_illustrations,
+    config_path,
+    illust_dir,
+    rand_seed=777,
+):
 
     if config_path is None:
         config_path = _pie_config_fpath(ibs, aid_list)
 
     with open(config_path) as config_buffer:
         config = json.loads(config_buffer.read())
-
 
     right_dir = os.path.join(illust_dir, 'correct')
     wrong_dir = os.path.join(illust_dir, 'incorrect')
@@ -1300,6 +1397,7 @@ def illustrate_pie(ibs, qaid_list, daid_list, ranks, num_illustrations, config_p
     d_fpaths = ibs.pie_annot_embedding_chip_fpaths(daid_list, config)
 
     import random
+
     random.seed(rand_seed)
     illus_indices = random.sample(range(len(qaid_list)), num_illustrations)
 
@@ -1310,8 +1408,10 @@ def illustrate_pie(ibs, qaid_list, daid_list, ranks, num_illustrations, config_p
 
         # illustrate the potential matches
         q_name = q_names[i]
-        correct_daids = [aid for aid,name in zip(daid_list, d_names) if name == q_name]
-        correct_daid_fpaths = [fp for fp,name in zip(d_fpaths, d_names) if name == q_name]
+        correct_daids = [aid for aid, name in zip(daid_list, d_names) if name == q_name]
+        correct_daid_fpaths = [
+            fp for fp, name in zip(d_fpaths, d_names) if name == q_name
+        ]
         target_name_in_folder = str(qaid) + '-pie_emb'
         target_name_in_folder = os.path.join(target_dir, target_name_in_folder)
         correct_candidates_dir = target_name_in_folder + '-correct_candidates'
@@ -1319,14 +1419,14 @@ def illustrate_pie(ibs, qaid_list, daid_list, ranks, num_illustrations, config_p
         for d_fpath, daid in zip(correct_daid_fpaths, correct_daids):
             if daid != qaid:
                 daid_target_fname = str(daid) + os.path.splitext(d_fpath)[1]
-                daid_target_fname = os.path.join(correct_candidates_dir, daid_target_fname)
+                daid_target_fname = os.path.join(
+                    correct_candidates_dir, daid_target_fname
+                )
                 ut.copy(d_fpath, daid_target_fname)
 
         target_fname = str(qaid) + '-pie_emb' + os.path.splitext(fpath)[1]
         target_fname = os.path.join(target_dir, target_fname)
         ut.copy(fpath, target_fname)
-
-
 
 
 @register_ibs_method
@@ -1349,8 +1449,8 @@ def subset_with_resights(ibs, aid_list, n=3):
 
 def subset_with_resights_helper(names, imgs, n=3):
     name_counts = _count_dict(names)
-    good_pairs = [(im,name) for im, name in zip(imgs, names) if name_counts[name] >= n]
-    good_imgs  = [pair[0] for pair in good_pairs]
+    good_pairs = [(im, name) for im, name in zip(imgs, names) if name_counts[name] >= n]
+    good_imgs = [pair[0] for pair in good_pairs]
     good_names = [pair[1] for pair in good_pairs]
     return good_imgs, good_names
 
@@ -1360,6 +1460,7 @@ def subset_with_resights_range(ibs, aid_list, min_sights=3, max_sights=100):
     name_to_aids = _name_dict(ibs, aid_list)
     final_aids = []
     import random
+
     random.seed(777)
 
     for name, aids in name_to_aids.items():
@@ -1404,6 +1505,7 @@ def _invert_dict(d):
         inverted[value].append(key)
     return dict(inverted)
 
+
 # remember bbox is (xtl, ytl, w, h)
 def orca_annot_modifier(ibs, aid_list):
     bboxes = ibs.get_annot_bboxes(aid_list)
@@ -1415,23 +1517,30 @@ def orca_annot_modifier(ibs, aid_list):
 
     bbox_imgw_imgh_viewpoint = list(zip(bboxes, img_widths, img_heights, viewpoints))
     # tuple unpacking
-    bbox_imgw_imgh_viewpoint = [(xtl, ytl, ann_w, ann_h, im_w, im_h, view) for
-                                (xtl, ytl, ann_w, ann_h), im_w, im_h, view
-                                in bbox_imgw_imgh_viewpoint]
+    bbox_imgw_imgh_viewpoint = [
+        (xtl, ytl, ann_w, ann_h, im_w, im_h, view)
+        for (xtl, ytl, ann_w, ann_h), im_w, im_h, view in bbox_imgw_imgh_viewpoint
+    ]
 
     new_bboxes = [orca_convert_bbox(*bbox_info) for bbox_info in bbox_imgw_imgh_viewpoint]
     names = ibs.get_annot_names(aid_list)
     species = ibs.get_annot_species(aid_list)
     new_species = [spec + '_pie_temp_annot' for spec in species]
 
-    new_aids = ibs.add_annots(gids, bbox_list=new_bboxes, species_list=new_species,
-                              name_list=names, viewpoint_list=viewpoints)
+    new_aids = ibs.add_annots(
+        gids,
+        bbox_list=new_bboxes,
+        species_list=new_species,
+        name_list=names,
+        viewpoint_list=viewpoints,
+    )
     print('created %s new PIE aids in orca_annot_modifier' % len(new_aids))
     return new_aids
 
 
 _ORCA_WIDTH_MODIFIER = 3.0
 _ORCA_HEIGHT_MODIFIER = 1.5
+
 
 def orca_convert_bbox(xtl, ytl, annot_w, annot_h, img_w, img_h, viewpoint):
     if viewpoint == 'r' or viewpoint == 'right':

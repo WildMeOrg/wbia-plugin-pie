@@ -13,7 +13,7 @@ def triplet_loss_mult(y_true, y_preds, margin=0.5, n_poses=4, n_imgs=40):
 
     labels = K.slice(y_true, (0, 0), [n_imgs, -1])
 
-    temp_loss = lambda x: triplet_semihard_loss(labels, x, margin)
+    temp_loss = lambda x: triplet_semihard_loss(labels, x, margin)  # NOQA
     triplet_losses = tf.map_fn(temp_loss, y_preds_comb)
     return tf.reduce_mean(triplet_losses, name='triplet_loss_mult')
 

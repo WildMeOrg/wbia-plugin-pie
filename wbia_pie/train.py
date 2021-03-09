@@ -2,15 +2,15 @@
 import os
 import argparse
 import json
-import sys
 import matplotlib
 
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # NOQA
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
-import tensorflow as tf
+import tensorflow as tf  # NOQA
+
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
@@ -23,34 +23,35 @@ if gpus:
         # Memory growth must be set before GPUs have been initialized
         print(e)
 
-import keras
+import keras  # NOQA
+
 # import tensorflow as tf
 gpu_options = tf.compat.v1.GPUOptions(allow_growth=True)
 sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=gpu_options))
 keras.backend.tensorflow_backend.set_session(sess)
 
-import numpy as np
-from math import ceil
-from datetime import datetime
+import numpy as np  # NOQA
+from math import ceil  # NOQA
+from datetime import datetime  # NOQA
 
 # trying to fix train bug
-from keras.preprocessing.image import ImageDataGenerator
-import keras.backend as K
-from keras.utils import to_categorical
+from keras.preprocessing.image import ImageDataGenerator  # NOQA
+import keras.backend as K  # NOQA
+from keras.utils import to_categorical  # NOQA
 
-from .model.triplet import TripletLoss
-from .model.siamese import Siamese
-from .model.triplet_pose_model import TripletLossPoseInv
-from .model.classification_model import Classification
-from .utils.batch_generators import BatchGenerator, PairsImageDataGenerator
-from .utils.preprocessing import (
-    read_dataset,
-    analyse_dataset,
-    split_classes,
-    split_classification,
+from .model.triplet import TripletLoss  # NOQA
+from .model.siamese import Siamese  # NOQA
+from .model.triplet_pose_model import TripletLossPoseInv  # NOQA
+from .model.classification_model import Classification  # NOQA
+from .utils.batch_generators import BatchGenerator, PairsImageDataGenerator  # NOQA
+from .utils.preprocessing import (  # NOQA
+    read_dataset,  # NOQA
+    analyse_dataset,  # NOQA
+    split_classes,  # NOQA
+    split_classification,  # NOQA
 )
-from .utils.utils import print_nested, save_res_csv
-from .evaluation.evaluate_accuracy import evaluate_1_vs_all
+from .utils.utils import print_nested, save_res_csv  # NOQA
+from .evaluation.evaluate_accuracy import evaluate_1_vs_all  # NOQA
 
 argparser = argparse.ArgumentParser(
     description='Train and validate a model on any dataset'
@@ -78,7 +79,9 @@ def train(config, split_num=-1):
     ###############################
     plugin_folder = os.path.dirname(os.path.realpath(__file__))
     # note: below line saves training log inside plugin folder
-    exp_folder = os.path.join(plugin_folder, config['train']['exp_dir'], config['train']['exp_id'])
+    exp_folder = os.path.join(
+        plugin_folder, config['train']['exp_dir'], config['train']['exp_id']
+    )
 
     if split_num >= 0:
         exp_folder = exp_folder + '-split-' + str(split_num)
@@ -106,13 +109,15 @@ def train(config, split_num=-1):
 
     # Get test set if exists, otherwise split train set
     test_dir = config['evaluate']['test_set']
-    if test_dir is not None and test_dir != "":
+    if test_dir is not None and test_dir != '':
         print('Loading test set from {}'.format(config['evaluate']['test_set']))
         valid_imgs, valid_names, _ = read_dataset(
-            os.path.join(plugin_folder, config['evaluate']['test_set']), original_labels=True
+            os.path.join(plugin_folder, config['evaluate']['test_set']),
+            original_labels=True,
         )
         train_imgs, train_names, _ = read_dataset(
-            os.path.join(plugin_folder, config['data']['train_image_folder']), original_labels=True
+            os.path.join(plugin_folder, config['data']['train_image_folder']),
+            original_labels=True,
         )
         overlap = all(np.isin(train_names, valid_names))
         print('Overlap between train and valid set in individual names: ', overlap)
@@ -128,7 +133,10 @@ def train(config, split_num=-1):
             valid_labels = to_categorical(valid_labels)
     else:
         print('No test set. Splitting train set...')
-        imgs, labels, label_dict, fnames = read_dataset(os.path.join(plugin_folder, config['data']['train_image_folder']), return_filenames=True)
+        imgs, labels, label_dict, fnames = read_dataset(
+            os.path.join(plugin_folder, config['data']['train_image_folder']),
+            return_filenames=True,
+        )
         print('Label encoding: ', label_dict)
         if config['model']['type'] in ('TripletLoss', 'TripletPose', 'Siamese'):
             train_imgs, train_labels, valid_imgs, valid_labels = split_classes(

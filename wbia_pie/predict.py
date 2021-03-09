@@ -247,8 +247,11 @@ def predict(
 
     # Fit nearest neighbours classifier
     neigh_lbl_un, neigh_ind_un, neigh_dist_un = predict_k_neigh(
-        db_embs, db_lbls, embedding, k=10,
-        nearest_neighbors_cache_path=nearest_neighbors_cache_path
+        db_embs,
+        db_lbls,
+        embedding,
+        k=10,
+        nearest_neighbors_cache_path=nearest_neighbors_cache_path,
     )
 
     # print(neigh_lbl_un, neigh_ind_un, neigh_dist_un)
@@ -339,12 +342,21 @@ def predict(
     return ans_dict
 
 
-def pred_light(query_embedding, db_embeddings, db_labels, config_path, n_results=10,
-               nearest_neighbors_cache_path=None):
+def pred_light(
+    query_embedding,
+    db_embeddings,
+    db_labels,
+    config_path,
+    n_results=10,
+    nearest_neighbors_cache_path=None,
+):
     # Fit nearest neighbours classifier
     neigh_lbl_un, neigh_ind_un, neigh_dist_un = predict_k_neigh(
-        db_embeddings, db_labels, query_embedding, k=n_results,
-        nearest_neighbors_cache_path=nearest_neighbors_cache_path
+        db_embeddings,
+        db_labels,
+        query_embedding,
+        k=n_results,
+        nearest_neighbors_cache_path=nearest_neighbors_cache_path,
     )
 
     neigh_lbl_un = neigh_lbl_un[0]

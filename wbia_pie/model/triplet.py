@@ -7,13 +7,16 @@ from scipy.special import comb
 
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/utils')
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/evaluation')
-from base_model import BaseModel
-from tensorflow_losses import triplet_semihard_loss, lifted_struct_loss
-from utils import plot_model_loss_csv
-from metrics import distance
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/evaluation'
+)
+from base_model import BaseModel  # NOQA
+from tensorflow_losses import triplet_semihard_loss, lifted_struct_loss  # NOQA
+from utils import plot_model_loss_csv  # NOQA
+from metrics import distance  # NOQA
 
 
 class TripletLoss(BaseModel):
@@ -56,15 +59,13 @@ class TripletLoss(BaseModel):
         """Compile the model"""
         loss_func = loss_func or self.loss_func
 
-        print('Using optimizer: %r' % (self.optimizer, ))
+        print('Using optimizer: %r' % (self.optimizer,))
         if self.optimizer == 'adam':
             optimizer = Adam(
                 lr=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0
             )
         elif self.optimizer == 'sgd':
-            optimizer = SGD(
-                lr=learning_rate, momentum=0.9, nesterov=True
-            )
+            optimizer = SGD(lr=learning_rate, momentum=0.9, nesterov=True)
         else:
             raise ValueError('self.optimizer is not recognized')
 

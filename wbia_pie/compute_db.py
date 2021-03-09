@@ -67,7 +67,9 @@ def hello():
 
 
 # This is a package-ified version of original _main_ func
-def compute(dbpath, config_path, output_dir, prefix, export=False, augmentation_seed=None):
+def compute(
+    dbpath, config_path, output_dir, prefix, export=False, augmentation_seed=None
+):
 
     # process inputs and load default values
     with open(config_path) as config_buffer:

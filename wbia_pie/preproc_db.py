@@ -97,7 +97,13 @@ argparser.add_argument(
 
 
 def preproc_worker(arguments):
-    file, config, size, draw, output_dir, = arguments
+    (
+        file,
+        config,
+        size,
+        draw,
+        output_dir,
+    ) = arguments
 
     print('Processing file {}'.format(file))
     proc_count = 0
@@ -214,14 +220,15 @@ def preproc(impath, config_path, lfile=None, draw=None, output=None, start_index
 
     files = files[start_index:]
     num_files = len(files)
-    arguments_list = list(zip(
-        files,
-        [config] * num_files,
-        [size] * num_files,
-        [draw] * num_files,
-        [output_dir] * num_files,
-
-    ))
+    arguments_list = list(
+        zip(
+            files,
+            [config] * num_files,
+            [size] * num_files,
+            [draw] * num_files,
+            [output_dir] * num_files,
+        )
+    )
     with concurrent.futures.ThreadPoolExecutor() as executor:
         proc_count_list = list(
             tqdm.tqdm(

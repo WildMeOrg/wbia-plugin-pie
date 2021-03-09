@@ -1,19 +1,23 @@
 # -*- coding: utf-8 -*-
-import argparse, os, sys, json
+import argparse
+import os
+import sys
+import json
 import matplotlib
 
 matplotlib.use('Agg')
 
-import numpy as np
-from datetime import datetime
+import numpy as np  # NOQA
+from datetime import datetime  # NOQA
 
-from .model.triplet import TripletLoss
-from .model.siamese import Siamese
-from .model.triplet_pose_model import TripletLossPoseInv
-from .utils.utils import print_nested, save_res_csv, export_emb
-from .utils.preprocessing import read_dataset, analyse_dataset, split_classes
-from .evaluation.evaluate_pairs import evaluate_pairs
-from .evaluation.evaluate_accuracy import evaluate_1_vs_all
+# NOQA
+from .model.triplet import TripletLoss  # NOQA
+from .model.siamese import Siamese  # NOQA
+from .model.triplet_pose_model import TripletLossPoseInv  # NOQA
+from .utils.utils import print_nested, save_res_csv, export_emb  # NOQA
+from .utils.preprocessing import read_dataset, analyse_dataset, split_classes  # NOQA
+from .evaluation.evaluate_pairs import evaluate_pairs  # NOQA
+from .evaluation.evaluate_accuracy import evaluate_1_vs_all  # NOQA
 
 argparser = argparse.ArgumentParser(description='Evaluate model on any dataset')
 
@@ -42,17 +46,19 @@ def evaluate(config_path, split_num=-1, mode='all'):
         config = json.loads(config_buffer.read())
 
     # Define folder for experiment
-    exp_folder = os.path.join(plugin_folder, config['train']['exp_dir'], config['train']['exp_id'])
+    exp_folder = os.path.join(
+        plugin_folder, config['train']['exp_dir'], config['train']['exp_id']
+    )
     if split_num >= 0:
         exp_folder = exp_folder + '-split-' + str(split_num)
 
     # Redirect output as per config
     FULL_PRINT_LOG = os.path.join(exp_folder, 'full_print_output.log')
     if config['general']['stdout-file']:
-        print("Printing remaining logs to %s" % FULL_PRINT_LOG)
+        print('Printing remaining logs to %s' % FULL_PRINT_LOG)
         sys.stdout = open(FULL_PRINT_LOG, 'a+')
 
-    print("Printing eval at %s" % datetime.now())
+    print('Printing eval at %s' % datetime.now())
 
     print(
         'Date: {} / EVALUATION of experiment id: {}'.format(
@@ -230,7 +236,7 @@ def evaluate(config_path, split_num=-1, mode='all'):
     result['far'] = round(far, 3)
     result['auc'] = round(auc, 3)
 
-    print("Saving result csv to %s" % EVAL_LOG)
+    print('Saving result csv to %s' % EVAL_LOG)
     save_res_csv(result, EVAL_LOG)
 
 

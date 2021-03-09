@@ -5,7 +5,8 @@ This script allows the user to select and copy the files from one folder
 to another as specified in the first column of csv file.
 """
 
-import os, argparse
+import os
+import argparse
 import numpy as np
 from imageio import imread, imsave
 
@@ -29,7 +30,7 @@ argparser.add_argument(
 
 
 def _main_(args):
-    labels_file = args.file  #'data/whales_not_trained_2test.csv'
+    labels_file = args.file  # 'data/whales_not_trained_2test.csv'
     src_folder = args.src  # os.path.join('data', 'whales_train')
     trg_folder = args.trg  # os.path.join('data', 'whales_test_images')
 
