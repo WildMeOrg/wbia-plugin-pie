@@ -7,6 +7,6 @@ numpy >= 1.11.1
 scikit-image
 scikit-learn
 scipy
-tensorflow==1.15.5
+tensorflow==2.11.1
 # wildbook-ia
 # wbia-utool
